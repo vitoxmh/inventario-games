@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+/public/uploads/
 
 # production
 /build
@@ -32,10 +33,34 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
 
+# logs de servidor / pruebas
+/dev-server.log
+/dev3000.log
+/*.log
+
+# artefactos de pruebas E2E (scratch)
+/c5.txt
+/ht.txt
+/ht_h.txt
+/g5.json
+/gpr.json
+/r2.json
+/reg5.json
+/rp.json
+
+# config de agentes/editor (local)
+/.agents
+/.claude
+/.windsurf
+/skills-lock.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma

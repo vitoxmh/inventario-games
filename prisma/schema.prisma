@@ -1,0 +1,154 @@
+// GameVault — base de datos de inventario para coleccionistas
+// Prisma 7 (prisma-client generator + driver adapter)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Plan {
+  FREE
+  PRO
+  COLLECTOR
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+enum GameStatus {
+  OWNED
+  SEALED
+  CIB
+  LOOSE
+  DIGITAL
+  WISHLIST
+  SELLING
+}
+
+model PlanConfig {
+  plan       Plan @id
+  imageLimit Int
+}
+
+model Platform {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  games Game[]
+
+  @@index([slug])
+}
+
+model User {
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  passwordHash         String?
+  name                 String?
+  imageUrl             String?
+  emailVerifiedAt      DateTime?
+  role                 String               @default("user")
+  bannedAt             DateTime?
+  plan                 Plan                 @default(FREE)
+  stripeCustomerId     String?              @unique
+  stripeSubscriptionId String?              @unique
+  mpPreapprovalId      String?              @unique
+  mpPreapprovalPlanId  String?
+  subscriptionStatus   SubscriptionStatus?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  games    Game[]
+  sessions Session[]
+  accounts Account[]
+}
+
+model Game {
+  id         String     @id @default(cuid())
+  userId     String
+  title      String
+  platformId String
+  genre      String?
+  status     GameStatus @default(OWNED)
+  condition  String?
+  purchasePrice Decimal?   @db.Decimal(10, 2)
+  purchaseDate  DateTime?
+  notes         String?
+  coverImageUrl String?
+  rawgId        String?
+  playtimeMin   Int?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform Platform   @relation(fields: [platformId], references: [id], onDelete: Restrict)
+  images   GameImage[]
+
+  @@index([userId])
+  @@index([platformId])
+  @@index([status])
+}
+
+model GameImage {
+  id        String   @id @default(cuid())
+  gameId    String
+  url       String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, position])
+}
+
+// ---- Tablas para el adapter de Auth.js (NextAuth v5) ----
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
