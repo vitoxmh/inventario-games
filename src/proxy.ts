@@ -99,6 +99,11 @@ export async function proxy(request: NextRequest) {
     const token = await getToken({
       req: request,
       secret: process.env.AUTH_SECRET,
+      // En HTTPS Auth.js usa el prefijo `__Secure-` para la cookie de sesión
+      // (useSecureCookies se deriva de url.protocol === "https:"). Sin esto,
+      // getToken busca "authjs.session-token" y no la encuentra en Vercel,
+      // provocando el bucle de redirección a /login aunque la sesión exista.
+      secureCookie: request.nextUrl.protocol === "https:",
     })
     if (!token) {
       const url = request.nextUrl.clone()
