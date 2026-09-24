@@ -31,7 +31,10 @@ function buildCsp(nonce: string): string {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${
       isDev ? " 'unsafe-eval'" : ""
     }`,
-    `style-src 'self' 'unsafe-inline' 'nonce-${nonce}'`,
+    // Sin nonce en style-src: si confluyen 'unsafe-inline' + nonce la spec
+    // ignora 'unsafe-inline' y bloquea todo estilo inline en runtime (sonner,
+    // next-themes, posicionadores Base UI). El nonce aquí no aporta nada.
+    "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self'",
