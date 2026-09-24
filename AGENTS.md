@@ -24,7 +24,7 @@ SaaS de inventario para coleccionistas de videojuegos. Repo pequeño, monorepo-i
 | NextAuth | v5 beta (`next-auth@5.0.0-beta.32`) | sesión JWT, `trustHost: true` |
 | DB | PostgreSQL en Neon | vía `@neondatabase/serverless` |
 | Pagos | `stripe` + MercadoPago | implementación propia, ver `src/lib/{stripe,mp,payments,billing}.ts` |
-| Storage | Cloudflare R2 (vía `@aws-sdk/client-s3`) | imágenes subidas (`/api/games/upload`); fallback filesystem `public/uploads/` solo en local |
+| Storage | `@vercel/blob` | imágenes subidas (`/api/games/upload`); fallback filesystem `public/uploads/` solo en local |
 | i18n | homemade (no next-intl) | ver sección i18n |
 | UI libs | `lucide-react`, `sonner` (toasts), `next-themes`, `tailwindcss@4`, `tw-animate-css`, `class-variance-authority`, paquete **`cn`** (`import { cn } from "cn"`) |
 
@@ -52,7 +52,7 @@ Nombres que el código lee (vía `process.env`):
 - `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (RAWG API) — usadas por `src/lib/rawg.ts` para buscar juegos al añadir (`/api/rawg/search`)
 - Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL`
 - MercadoPago: `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, credenciales del preapproval `MP_PREAPPROVAL_*`
-- **Cloudflare R2** (compatible S3): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (base pública `https://pub-*.r2.dev` o dominio propio). Imágenes de portada/capturas subidas en `/api/games/upload`. En Vercel el filesystem es efímero: sin estas variables las subidas fallan/caen; se usa el bucket R2 (plan gratuito 10GB, egress gratis). Sin la config completa, en local hay fallback a `public/uploads/`.
+- **`BLOB_READ_WRITE_TOKEN`** (Vercel Blob) — imágenes de portada/capturas subidas en `/api/games/upload`. En Vercel el filesystem es efímero y `public/` es inmutable en runtime: sin token las subidas fallan/caen; se usa el store de Blob (plan gratuito 5GB, sin tarjeta en Hobby). Sin la variable, en local hay fallback a `public/uploads/`.
 - Email: `RESEND_API_KEY` (+ remitentes) para `src/lib/email.ts` (verificación de correo, alertas)
 - `NODE_ENV`, `DATABASE_URL` para despliegue
 
@@ -82,7 +82,7 @@ src/
     api/
       auth/register, verify, resend-verification, [...nextauth]
       games + games/[id]          # CRUD del inventario del usuario (PATCH/POST/DELETE)
-      games/upload                # subida de imágenes (Cloudflare R2 si hay vars R2, si no filesystem local)
+      games/upload                # subida de imágenes (Vercel Blob si hay token, si no filesystem local)
       rawg/search                 # busqueda de juegos (RAWG)
       admin/users, admin/users/[id], admin/games, admin/games/[id]
       billing/checkout, billing/portal
@@ -137,7 +137,7 @@ src/
 8. **`SelectValue` de Base UI muestra el valor crudo** (ver sección Base UI): cada `<Select>` con valores claveados necesita `itemToStringLabel`. El patrón `label={children}` en el wrapper NO funciona (el store no deriva label del texto del item).
 9. **E2E headless: viewport pequeño rompe el hit-test**: con 800×600 el menú de la card hacía flip hacia arriba cortándose y `elementFromPoint` en las coords del item devolvía otro elemento → el click se perdía (pointerdown/up en targets distintos = sin evento `click`). Fix: `Emulation.setDeviceMetricsOverride` (1280×1000) antes de navegar.
 10. **E2E: `ctrl+a` + `Input.insertText` no selecciona en inputs controlados** (hace append al valor existente). Para reemplazar valor en React: setter nativo del prototipo + `dispatchEvent(new Event('input', {bubbles:true}))`. Afectó al helper `setInputValue` de `e2e_ficha.mjs`.
-11. **Subidas de imagen no funcionan en Vercel**: escribir en `public/uploads/` en runtime NO persiste (filesystem efímero de las funciones serverless; `/public` es inmutable fuera del build). Arreglado con **Cloudflare R2** (`@aws-sdk/client-s3`, `PutObjectCommand` con `endpoint: https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`, `region: 'auto'`, bucket con Public access + `R2_PUBLIC_URL`); el filesystem local queda solo como fallback sin la config R2. Si un store de imágenes de terceros necesita `next/image` o CSP, hay que configurar `remotePatterns`/abrir CSP intencionalmente (aquí se usan `<img>` planos y `img-src https:` ya cubre el dominio R2).
+11. **Subidas de imagen no funcionan en Vercel**: escribir en `public/uploads/` en runtime NO persiste (filesystem efímero de las funciones serverless; `/public` es inmutable fuera del build). Arreglado con **Vercel Blob** (`@vercel/blob`, `put` con `access:'public'` + `BLOB_READ_WRITE_TOKEN`, plan gratuito 5GB sin tarjeta en Hobby); el filesystem local queda solo como fallback sin token. Si un store de imágenes de terceros necesita `next/image` o CSP, hay que configurar `remotePatterns`/abrir CSP intencionalmente (aquí se usan `<img>` planos y `img-src https:` ya cubre el dominio de blob).
 12. **NextAuth v5 en HTTPS: la cookie de sesión lleva el prefijo `__Secure-`** (`useSecureCookies` deriva de `url.protocol === "https:"`). `getToken()` por defecto busca `authjs.session-token` sin prefijo → en Vercel el guard de `/app` nunca veía la sesión y boteaba a `/login` pese a estar logueado. Fix: pasar `secureCookie: request.nextUrl.protocol === "https:"` en `src/proxy.ts`.
 
 ## Entorno local (Windows)

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { randomBytes } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
+import { put } from "@vercel/blob"
 import { auth } from "@/auth"
 import { prisma, Plan } from "@/lib/db"
 import { isPaidPlan } from "@/lib/plans"
@@ -11,27 +11,6 @@ import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 export const dynamic = "force-dynamic"
 
 const MAX_SIZE = 2 * 1024 * 1024
-
-// Cloudflare R2 (compatible S3). Solo se crea el cliente si la configuración
-// está completa; en local sin R2 la subida cae al filesystem como fallback.
-const r2AccountId = process.env.R2_ACCOUNT_ID
-const r2AccessKeyId = process.env.R2_ACCESS_KEY_ID
-const r2SecretAccessKey = process.env.R2_SECRET_ACCESS_KEY
-const r2Bucket = process.env.R2_BUCKET_NAME
-const r2PublicUrl = process.env.R2_PUBLIC_URL
-const r2Enabled = Boolean(
-  r2AccountId && r2AccessKeyId && r2SecretAccessKey && r2Bucket && r2PublicUrl,
-)
-const r2 = r2Enabled
-  ? new S3Client({
-      region: "auto",
-      endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: r2AccessKeyId!,
-        secretAccessKey: r2SecretAccessKey!,
-      },
-    })
-  : null
 
 const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -88,28 +67,22 @@ export async function POST(request: Request) {
   const filename = `${randomBytes(16).toString("hex")}.${ext}`
 
   // Producción: el filesystem de Vercel es efímero y `public/` es inmutable en
-  // runtime, así que las imágenes van a Cloudflare R2 (URL absoluta https).
-  if (r2) {
-    const key = `uploads/${filename}`
+  // runtime, así que las imágenes van a Vercel Blob (URL absoluta https).
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN
+  if (blobToken) {
     try {
-      await r2.send(
-        new PutObjectCommand({
-          Bucket: r2Bucket,
-          Key: key,
-          Body: buffer,
-          ContentType: file.type,
-          CacheControl: "public, max-age=31536000, immutable",
-        }),
-      )
-      const base = r2PublicUrl!.replace(/\/+$/, "")
-      return NextResponse.json({ url: `${base}/${key}` }, { status: 201 })
+      const blob = await put(`uploads/${filename}`, buffer, {
+        access: "public",
+        token: blobToken,
+      })
+      return NextResponse.json({ url: blob.url }, { status: 201 })
     } catch (error) {
-      console.error("[games/upload] error subiendo a Cloudflare R2:", error)
+      console.error("[games/upload] error subiendo a Vercel Blob:", error)
       return NextResponse.json({ error: "upload_failed" }, { status: 500 })
     }
   }
 
-  // Local (sin variables R2): fallback al filesystem.
+  // Local (sin BLOB_READ_WRITE_TOKEN): fallback al filesystem.
   const dir = join(process.cwd(), "public", "uploads")
   await mkdir(dir, { recursive: true })
   await writeFile(join(dir, filename), buffer)
