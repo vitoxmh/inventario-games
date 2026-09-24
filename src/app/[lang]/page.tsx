@@ -12,9 +12,10 @@ import {
 import { buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { PricingCards } from "@/components/site/pricing-cards"
+import { PricingCards, buildPricingCards } from "@/components/site/pricing-cards"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
+import { listPlans } from "@/lib/plans"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
@@ -52,6 +53,9 @@ export default async function HomePage() {
   const dict = await getDictionary()
   const currentLocale = await lang()
   const localePrefix = `/${currentLocale}`
+  const locale = isLocale(currentLocale) ? currentLocale : "es"
+  const plans = await listPlans({ activeOnly: true })
+  const cards = buildPricingCards({ plans, pricing: dict.pricing, locale })
 
   return (
     <div className="flex flex-col gap-24 pb-24">
@@ -123,6 +127,7 @@ export default async function HomePage() {
         </div>
         <PricingCards
           pricing={dict.pricing}
+          cards={cards}
           href={(name) => `${localePrefix}/signup?plan=${encodeURIComponent(name.toLowerCase())}`}
         />
       </section>

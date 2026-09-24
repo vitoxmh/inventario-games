@@ -1,8 +1,7 @@
 import "server-only"
-import type { Plan } from "@/generated/prisma/enums"
 import { isMpConfigured } from "@/lib/mp"
 
-export const TIER_RANK: Record<Plan, number> = {
+export const TIER_RANK: Record<string, number> = {
   FREE: 0,
   PRO: 1,
   COLLECTOR: 2,
@@ -27,16 +26,16 @@ export type PlanMeta = {
  * flotante. El price id proviene de una variable de entorno: en ningún
  * momento se confía en un price id enviado por el cliente.
  */
-export const PLAN_META: Record<Plan, PlanMeta> = {
+export const PLAN_META: Record<string, PlanMeta> = {
   FREE: { priceCents: null, priceEnvKey: null },
   PRO: { priceCents: 499, priceEnvKey: "STRIPE_PRICE_PRO" },
   COLLECTOR: { priceCents: 999, priceEnvKey: "STRIPE_PRICE_COLLECTOR" },
 }
 
-export function priceIdForPlan(plan: Plan): string | null {
-  const envKey = PLAN_META[plan].priceEnvKey
-  if (!envKey) return null
-  return process.env[envKey] ?? null
+export function priceIdForPlan(plan: string): string | null {
+  const meta = PLAN_META[plan]
+  if (!meta?.priceEnvKey) return null
+  return process.env[meta.priceEnvKey] ?? null
 }
 
 export function planFromPriceId(

@@ -1,30 +1,65 @@
 import Link from "next/link"
 import { Check } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { PLAN_META } from "@/lib/billing"
+import { planName, type PlanRow, type Locale } from "@/lib/plans"
 import type { Dictionary } from "@/messages/es"
 
-export async function PricingCards({
+export type PricingCard = {
+  name: string
+  price: string
+  features: string[]
+}
+
+export function buildPricingCards(args: {
+  plans: PlanRow[]
+  pricing: Dictionary["pricing"]
+  locale: Locale
+}): PricingCard[] {
+  const { plans, pricing, locale } = args
+  return plans.map((plan) => {
+    const priceCents = PLAN_META[plan.slug]?.priceCents ?? null
+    const price =
+      priceCents === null
+        ? pricing.priceFree
+        : `$${(priceCents / 100).toFixed(2)}`
+    const features = [
+      plan.gameLimit === null
+        ? pricing.gamesUnlimited
+        : `${plan.gameLimit} ${pricing.games}`,
+      `${plan.imageLimit} ${pricing.photosPerGame}`,
+      ...(plan.paid ? [pricing.prioritySupport] : []),
+    ]
+    return {
+      name: planName(plan, locale),
+      price,
+      features,
+    }
+  })
+}
+
+export function PricingCards({
   pricing,
+  cards,
   href,
 }: {
   pricing: Dictionary["pricing"]
+  cards: PricingCard[]
   href: (name: string) => string
 }) {
-
   return (
     <div className="grid gap-6 md:grid-cols-3">
-      {pricing.plans.map((plan, index) => {
-        const isPopular = index === 1
+      {cards.map((plan, index) => {
+        const isPopular = cards.length > 1 && index === Math.floor(cards.length / 2)
         return (
           <Card
             key={plan.name}
@@ -40,7 +75,6 @@ export async function PricingCards({
             )}
             <CardHeader>
               <CardTitle>{plan.name}</CardTitle>
-              <CardDescription>{plan.description}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col gap-6">
               <div className="flex items-baseline gap-1">

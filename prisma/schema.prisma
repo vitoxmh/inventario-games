@@ -10,12 +10,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Plan {
-  FREE
-  PRO
-  COLLECTOR
-}
-
 enum SubscriptionStatus {
   ACTIVE
   INACTIVE
@@ -34,9 +28,19 @@ enum GameStatus {
   SELLING
 }
 
-model PlanConfig {
-  plan       Plan @id
-  imageLimit Int
+model Plan {
+  slug       String   @id
+  nameEs     String
+  nameEn     String
+  gameLimit  Int?
+  imageLimit Int      @default(1)
+  paid       Boolean  @default(false)
+  active     Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([active, sortOrder])
 }
 
 model Platform {
@@ -60,7 +64,7 @@ model User {
   emailVerifiedAt      DateTime?
   role                 String               @default("user")
   bannedAt             DateTime?
-  plan                 Plan                 @default(FREE)
+  plan                 String               @default("FREE")
   stripeCustomerId     String?              @unique
   stripeSubscriptionId String?              @unique
   mpPreapprovalId      String?              @unique

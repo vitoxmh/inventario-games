@@ -4,7 +4,6 @@ import Google from "next-auth/providers/google"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/db"
 import { ADMIN_EMAILS } from "@/lib/admin-emails"
-import type { Plan } from "@/generated/prisma/enums"
 
 const hasGoogle = Boolean(
   process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
@@ -74,7 +73,7 @@ export const authConfig = {
         token.banned = dbUser.bannedAt != null
       } else if (user?.id) {
         token.id = user.id
-        token.plan = (user.plan as Plan | undefined) ?? "FREE"
+        token.plan = (user.plan as string | undefined) ?? "FREE"
         token.role = (user.role as string | undefined) ?? "user"
         token.banned = (user as { banned?: boolean }).banned ?? false
       }
@@ -83,7 +82,7 @@ export const authConfig = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
-        session.user.plan = (token.plan as Plan | undefined) ?? "FREE"
+        session.user.plan = (token.plan as string | undefined) ?? "FREE"
         session.user.role = (token.role as string | undefined) ?? "user"
         session.user.banned = Boolean(token.banned)
       }

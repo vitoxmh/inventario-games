@@ -15,7 +15,7 @@ const PAID_PLANS = ["PRO", "COLLECTOR"] as const
 type BillingUserRow = {
   id: string
   email: string
-  plan: "FREE" | "PRO" | "COLLECTOR"
+  plan: string
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
   subscriptionStatus: string | null

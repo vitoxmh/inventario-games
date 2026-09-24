@@ -44,13 +44,21 @@ type ListResponse = {
   pages: number
 }
 
+type PlanOption = {
+  slug: string
+  label: string
+  active: boolean
+}
+
 export function AdminUsersClient({
   initialUsers,
   initialTotal,
+  plans,
   dict,
 }: {
   initialUsers: AdminUser[]
   initialTotal: number
+  plans: PlanOption[]
   dict: AdminDict
 }) {
   const [q, setQ] = useState("")
@@ -193,14 +201,23 @@ export function AdminUsersClient({
                       onValueChange={(value) =>
                         value != null && changePlan(user, value)
                       }
+                      itemToStringLabel={(value) =>
+                        plans.find((p) => p.slug === value)?.label ?? value
+                      }
                     >
                       <SelectTrigger size="sm" aria-label={dict.plan}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="FREE">Free</SelectItem>
-                        <SelectItem value="PRO">Pro</SelectItem>
-                        <SelectItem value="COLLECTOR">Collector</SelectItem>
+                        {plans.map((plan) => (
+                          <SelectItem
+                            key={plan.slug}
+                            value={plan.slug}
+                            disabled={!plan.active && plan.slug !== user.plan}
+                          >
+                            {plan.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </TableCell>

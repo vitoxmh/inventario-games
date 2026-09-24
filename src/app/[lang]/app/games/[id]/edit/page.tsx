@@ -48,7 +48,7 @@ export default async function EditGamePage({
   ])
   if (!game) notFound()
 
-  const canCustomCover = isPaidPlan(session.user.plan)
+  const canCustomCover = await isPaidPlan(session.user.plan)
   const maxImages = await getImageLimit(session.user.plan)
 
   return (

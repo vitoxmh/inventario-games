@@ -94,6 +94,25 @@ export async function proxy(request: NextRequest) {
     )
   }
 
+  // Logueado + home del sitio (/{locale}) → su inventario. El resto de páginas
+  // públicas (pricing, login, signup…) siguen siendo accesibles.
+  if (/^\/(es|en)$/.test(pathname)) {
+    const token = await getToken({
+      req: request,
+      secret: process.env.AUTH_SECRET,
+      secureCookie: isHttps,
+    })
+    if (token) {
+      const url = request.nextUrl.clone()
+      url.pathname = `/${pathname.slice(1)}/app`
+      return withSecurityHeaders(
+        NextResponse.redirect(url),
+        nonce,
+        isHttps,
+      )
+    }
+  }
+
   const appMatch = /^\/(es|en)\/app(?:\/|$)/.exec(pathname)
   if (appMatch) {
     const token = await getToken({

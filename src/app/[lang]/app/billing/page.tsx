@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { lang } from "next/root-params"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { getPlanLimit } from "@/lib/plans"
+import { getPlan, planName } from "@/lib/plans"
 import { getEnabledProviders } from "@/lib/billing"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { BillingClient } from "@/components/billing/billing-client"
@@ -34,12 +34,16 @@ export default async function BillingPage(
       })
     : null
 
-  const count = userId
-    ? await prisma.game.count({ where: { userId } })
-    : 0
-  const limit = user
-    ? getPlanLimit(user.plan)
-    : getPlanLimit("FREE")
+  const planSlug = user?.plan ?? "FREE"
+  const [count, imageCount, planRow] = await Promise.all([
+    userId ? prisma.game.count({ where: { userId } }) : Promise.resolve(0),
+    userId
+      ? prisma.gameImage.count({ where: { game: { userId } } })
+      : Promise.resolve(0),
+    getPlan(planSlug),
+  ])
+  const limit = planRow?.gameLimit ?? null
+  const imageLimit = planRow?.imageLimit ?? 1
   const providers = getEnabledProviders()
   const isSignedIn = Boolean(user)
 
@@ -51,14 +55,18 @@ export default async function BillingPage(
       ? rawCheckout
       : null
 
+  const planLabel = planRow ? planName(planRow, locale) : planSlug
+
   return (
     <BillingClient
       dict={dict.billing}
-      planNames={dict.app.planNames}
-      plan={user?.plan ?? "FREE"}
+      planName={planLabel}
+      plan={planSlug}
       subscriptionStatus={user?.subscriptionStatus ?? null}
       count={count}
       limit={limit}
+      imageCount={imageCount}
+      imageLimit={imageLimit}
       providers={isSignedIn ? providers : []}
       locale={locale}
       checkout={checkout}

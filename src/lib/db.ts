@@ -20,7 +20,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export { Prisma } from "@/generated/prisma/client"
-export { Plan, GameStatus, SubscriptionStatus } from "@/generated/prisma/enums"
+export { GameStatus, SubscriptionStatus } from "@/generated/prisma/enums"
 export type {
   Game,
   User,

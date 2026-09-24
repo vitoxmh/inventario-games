@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { Gamepad2 } from "lucide-react"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { getPlanLimit } from "@/lib/plans"
+import { getPlan } from "@/lib/plans"
 import { AddGameDialog } from "@/components/inventory/add-game-dialog"
 import { InventoryGrid } from "@/components/inventory/inventory-grid"
 import { toGameSummary } from "@/lib/game-summary"
@@ -46,7 +46,10 @@ export default async function InventoryPage() {
 
   const summary = games.map(toGameSummary)
 
-  const limit = getPlanLimit(session.user.plan)
+  const planRow = await getPlan(session.user.plan)
+  const limit = planRow?.gameLimit ?? null
+  const imageLimit = planRow?.imageLimit ?? 1
+  const totalImages = games.reduce((n, game) => n + game.images.length, 0)
   const inventoryDict = dict.inventory
 
   return (
@@ -59,6 +62,10 @@ export default async function InventoryPage() {
           <p className="text-sm text-muted-foreground">
             {dict.app.totalGames}: {games.length}
             {limit !== null ? ` / ${limit}` : ""}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {dict.app.totalPhotos}: {totalImages} · {dict.app.photosPerGame}:{" "}
+            {imageLimit}
           </p>
         </div>
         <AddGameDialog dict={inventoryDict} platforms={platforms} />

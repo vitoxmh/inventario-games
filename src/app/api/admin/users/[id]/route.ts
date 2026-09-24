@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/guard"
-import { prisma, Plan } from "@/lib/db"
+import { prisma } from "@/lib/db"
 
 export const dynamic = "force-dynamic"
-
-const PLAN_KEYS = Object.values(Plan) as string[]
 
 export async function PATCH(
   request: Request,
@@ -25,14 +23,18 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid_body" }, { status: 400 })
   }
 
-  const data: { plan?: Plan; role?: string; bannedAt?: Date | null } = {}
+  const data: { plan?: string; role?: string; bannedAt?: Date | null } = {}
 
   if (body.plan !== undefined) {
     const plan = String(body.plan)
-    if (!PLAN_KEYS.includes(plan)) {
+    const exists = await prisma.plan.findUnique({
+      where: { slug: plan },
+      select: { slug: true },
+    })
+    if (!exists) {
       return NextResponse.json({ error: "invalid_plan" }, { status: 400 })
     }
-    data.plan = plan as Plan
+    data.plan = plan
   }
 
   if (body.role !== undefined) {

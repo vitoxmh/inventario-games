@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { prisma, type Plan } from "@/lib/db"
+import { prisma } from "@/lib/db"
 import { getPlanLimit } from "@/lib/plans"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 
@@ -48,8 +48,8 @@ export async function GET() {
     }),
   ])
 
-  const plan = (user?.plan ?? "FREE") as Plan
-  const limit = getPlanLimit(plan)
+  const plan = user?.plan ?? "FREE"
+  const limit = await getPlanLimit(plan)
 
   return NextResponse.json({ games, plan, limit, count: games.length })
 }
@@ -105,8 +105,8 @@ export async function POST(request: Request) {
     where: { id: session.user.id },
     select: { plan: true },
   })
-  const plan = (dbUser?.plan ?? "FREE") as Plan
-  const limit = getPlanLimit(plan)
+  const plan = dbUser?.plan ?? "FREE"
+  const limit = await getPlanLimit(plan)
 
   if (limit !== null) {
     const count = await prisma.game.count({

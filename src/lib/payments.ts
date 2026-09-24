@@ -12,7 +12,7 @@ export type PaidPlan = "PRO" | "COLLECTOR"
 export type BillingUser = {
   id: string
   email: string
-  plan: "FREE" | "PRO" | "COLLECTOR"
+  plan: string
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
   subscriptionStatus: string | null

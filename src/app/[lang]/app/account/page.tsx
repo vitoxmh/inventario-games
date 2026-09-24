@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
+import { getPlan, planName } from "@/lib/plans"
 
 export const metadata: Metadata = {
   title: "Cuenta",
@@ -30,7 +31,8 @@ export default async function AccountPage() {
   }
 
   const dict = await getDictionary()
-  const plan = dict.app.planNames[session.user.plan]
+  const planRow = await getPlan(session.user.plan)
+  const plan = planRow ? planName(planRow, locale) : session.user.plan
 
   async function logoutAction(formData: FormData) {
     "use server"

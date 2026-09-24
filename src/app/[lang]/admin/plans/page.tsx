@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
-import { prisma, Plan } from "@/lib/db"
-import { DEFAULT_IMAGE_LIMITS } from "@/lib/plans"
+import { prisma } from "@/lib/db"
 import { AdminPlansClient } from "@/components/admin/admin-plans-client"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 
@@ -14,15 +13,32 @@ export const dynamic = "force-dynamic"
 export default async function AdminPlansPage() {
   const dict = await getDictionary()
 
-  const rows = await prisma.planConfig.findMany({
-    select: { plan: true, imageLimit: true },
-  })
-  const byPlan = new Map(rows.map((row) => [row.plan, row.imageLimit]))
-  const planKeys = Object.keys(Plan) as Array<keyof typeof Plan>
-  const configs = planKeys.map((plan) => ({
-    plan,
-    imageLimit: byPlan.get(plan) ?? DEFAULT_IMAGE_LIMITS[plan] ?? 1,
-  }))
+  const [plans, counts] = await Promise.all([
+    prisma.plan.findMany({
+      orderBy: [{ sortOrder: "asc" }, { slug: "asc" }],
+      select: {
+        slug: true,
+        nameEs: true,
+        nameEn: true,
+        gameLimit: true,
+        imageLimit: true,
+        paid: true,
+        active: true,
+        sortOrder: true,
+      },
+    }),
+    prisma.user.groupBy({ by: ["plan"], _count: { _all: true } }),
+  ])
+  const usersByPlan = new Map(counts.map((row) => [row.plan, row._count._all]))
 
-  return <AdminPlansClient initialConfigs={configs} dict={dict.admin} />
+  return (
+    <AdminPlansClient
+      initialPlans={plans.map((plan) => ({
+        ...plan,
+        gameLimit: plan.gameLimit,
+        userCount: usersByPlan.get(plan.slug) ?? 0,
+      }))}
+      dict={dict.admin}
+    />
+  )
 }

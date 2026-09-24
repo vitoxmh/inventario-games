@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { prisma, GameStatus, Plan } from "@/lib/db"
+import { prisma, GameStatus } from "@/lib/db"
 import { getImageLimit, isPaidPlan } from "@/lib/plans"
 
 export const dynamic = "force-dynamic"
@@ -144,8 +144,8 @@ export async function PATCH(
       where: { id: session.user.id },
       select: { plan: true },
     })
-    const plan = (dbUser?.plan ?? "FREE") as Plan
-    if (!isPaidPlan(plan)) {
+    const plan = dbUser?.plan ?? "FREE"
+    if (!(await isPaidPlan(plan))) {
       return NextResponse.json({ error: "plan_required" }, { status: 403 })
     }
     planMaxImages = await getImageLimit(plan)

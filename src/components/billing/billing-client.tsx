@@ -11,7 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { cn } from "cn"
-import type { Plan } from "@/generated/prisma/enums"
 
 export type Provider = "stripe" | "mp"
 
@@ -28,6 +27,8 @@ type BillingDict = {
     | "usage"
     | "usageOf"
     | "usageUnlimited"
+    | "usageImages"
+    | "usagePerGame"
     | "plansTitle"
     | "proName"
     | "proPrice"
@@ -52,11 +53,13 @@ type BillingDict = {
 
 type BillingClientProps = {
   dict: BillingDict
-  planNames: Record<string, string>
-  plan: Plan
+  planName: string
+  plan: string
   subscriptionStatus: string | null
   count: number
   limit: number | null
+  imageCount: number
+  imageLimit: number
   providers: Provider[]
   locale: "es" | "en"
   checkout: string | null
@@ -89,11 +92,13 @@ const PLAN_PRICES = {
 
 export function BillingClient({
   dict,
-  planNames,
+  planName,
   plan,
   subscriptionStatus,
   count,
   limit,
+  imageCount,
+  imageLimit,
   providers,
   locale,
   checkout,
@@ -166,7 +171,7 @@ export function BillingClient({
         <CardHeader>
           <CardTitle>{dict.currentPlan}</CardTitle>
           <CardDescription>
-            {planNames[plan] ?? plan}
+            {planName}
             {statusLabel ? ` · ${statusLabel}` : ""}
           </CardDescription>
         </CardHeader>
@@ -182,6 +187,13 @@ export function BillingClient({
                 style={{ width: `${percent}%` }}
               />
             </div>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">{dict.usageImages}</span>
+            <span className="font-medium">
+              {imageCount} {dict.usageOf} {imageLimit} {dict.usagePerGame}
+            </span>
           </div>
 
           {canManage && (

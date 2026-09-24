@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   title: "Crear cuenta",
 }
 
+export const dynamic = "force-dynamic"
+
 export default async function SignupPage(
   props: PageProps<"/[lang]/signup">,
 ) {

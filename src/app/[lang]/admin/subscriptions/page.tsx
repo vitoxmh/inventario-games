@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { CreditCard } from "lucide-react"
-import { prisma, Plan, SubscriptionStatus } from "@/lib/db"
+import { prisma, SubscriptionStatus } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -11,6 +11,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
+import { isLocale } from "@/lib/i18n/locales"
+import { lang } from "next/root-params"
 
 export const metadata: Metadata = {
   title: "Suscripciones",
@@ -29,8 +31,10 @@ function formatDate(value: Date | null | undefined) {
 export default async function AdminSubscriptionsPage() {
   const dict = await getDictionary()
   const adminDict = dict.admin
+  const currentLocale = await lang()
+  const locale = isLocale(currentLocale) ? currentLocale : "es"
 
-  const [totalUsers, planCounts, subCounts, recent] = await Promise.all([
+  const [totalUsers, planCounts, subCounts, recent, plans] = await Promise.all([
     prisma.user.count(),
     prisma.user.groupBy({ by: ["plan"], _count: { _all: true } }),
     prisma.user.groupBy({
@@ -52,11 +56,19 @@ export default async function AdminSubscriptionsPage() {
         updatedAt: true,
       },
     }),
+    prisma.plan.findMany({ select: { slug: true, nameEs: true, nameEn: true } }),
   ])
 
-  const proUsers = planCounts.find((row) => row.plan === Plan.PRO)?._count._all ?? 0
+  const planNames = new Map(
+    plans.map((plan) => [
+      plan.slug,
+      (locale === "en" ? plan.nameEn : plan.nameEs) || plan.slug,
+    ]),
+  )
+
+  const proUsers = planCounts.find((row) => row.plan === "PRO")?._count._all ?? 0
   const collectorUsers =
-    planCounts.find((row) => row.plan === Plan.COLLECTOR)?._count._all ?? 0
+    planCounts.find((row) => row.plan === "COLLECTOR")?._count._all ?? 0
   const activeSubs =
     subCounts.find((row) => row.subscriptionStatus === SubscriptionStatus.ACTIVE)
       ?._count._all ?? 0
@@ -125,7 +137,7 @@ export default async function AdminSubscriptionsPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">
-                        {dict.app.planNames[sub.plan]}
+                        {planNames.get(sub.plan) ?? sub.plan}
                       </Badge>
                     </TableCell>
                     <TableCell>

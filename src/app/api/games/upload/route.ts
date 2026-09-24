@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { put } from "@vercel/blob"
 import { auth } from "@/auth"
-import { prisma, Plan } from "@/lib/db"
+import { prisma } from "@/lib/db"
 import { isPaidPlan } from "@/lib/plans"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 
@@ -38,8 +38,8 @@ export async function POST(request: Request) {
     where: { id: session.user.id },
     select: { plan: true },
   })
-  const plan = (dbUser?.plan ?? "FREE") as Plan
-  if (!isPaidPlan(plan)) {
+  const plan = dbUser?.plan ?? "FREE"
+  if (!(await isPaidPlan(plan))) {
     return NextResponse.json({ error: "plan_required" }, { status: 403 })
   }
 
