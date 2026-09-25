@@ -3,7 +3,7 @@ import { headers } from "next/headers"
 import { Geist, Geist_Mono } from "next/font/google"
 import { lang } from "next/root-params"
 import { SessionProvider } from "next-auth/react"
-import { ThemeProvider } from "next-themes"
+import { ThemeProvider } from "@/components/site/theme-provider"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { Toaster } from "@/components/ui/sonner"
@@ -63,7 +63,8 @@ export default async function RootLayout({
 }: LayoutProps<"/[lang]">) {
   const currentLocale = await lang()
   // El proxy inyecta x-nonce por petición; se lo pasamos al script anti-FOUC
-  // de next-themes para que la CSP estricta (nonce + strict-dynamic) lo admita.
+  // del ThemeProvider propio (src/components/site/theme-provider.tsx) para que
+  // la CSP estricta (nonce + strict-dynamic) lo admita.
   const nonce = (await headers()).get("x-nonce") ?? undefined
 
   return (
@@ -73,13 +74,7 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-          nonce={nonce}
-        >
+        <ThemeProvider nonce={nonce}>
           <SessionProvider>
             <SiteHeader />
             <main className="flex-1">{children}</main>

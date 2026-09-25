@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma, GameStatus } from "@/lib/db"
-import { getImageLimit, isPaidPlan } from "@/lib/plans"
+import { getImageLimit } from "@/lib/plans"
 
 export const dynamic = "force-dynamic"
 
@@ -136,8 +136,8 @@ export async function PATCH(
     data.notes = String(body.notes ?? "").trim().slice(0, 2000) || null
   }
 
-  // El manejo de imágenes (portada personalizada y galería) es exclusivo de
-  // los planes de pago; se valida contra el plan en BD (autoritativo).
+  // El manejo de imágenes (portada personalizada y galería) aplica a cualquier
+  // plan con límite de imágenes > 0; se valida contra el plan en BD (autoritativo).
   let planMaxImages: number | null = null
   if (body.coverImageUrl !== undefined || body.images !== undefined) {
     const dbUser = await prisma.user.findUnique({
@@ -145,10 +145,10 @@ export async function PATCH(
       select: { plan: true },
     })
     const plan = dbUser?.plan ?? "FREE"
-    if (!(await isPaidPlan(plan))) {
+    planMaxImages = await getImageLimit(plan)
+    if (planMaxImages <= 0) {
       return NextResponse.json({ error: "plan_required" }, { status: 403 })
     }
-    planMaxImages = await getImageLimit(plan)
   }
 
   if (body.coverImageUrl !== undefined) {

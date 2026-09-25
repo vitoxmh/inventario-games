@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { put } from "@vercel/blob"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { isPaidPlan } from "@/lib/plans"
+import { getImageLimit } from "@/lib/plans"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -39,7 +39,8 @@ export async function POST(request: Request) {
     select: { plan: true },
   })
   const plan = dbUser?.plan ?? "FREE"
-  if (!(await isPaidPlan(plan))) {
+  const imageLimit = await getImageLimit(plan)
+  if (imageLimit <= 0) {
     return NextResponse.json({ error: "plan_required" }, { status: 403 })
   }
 

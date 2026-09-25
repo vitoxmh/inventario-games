@@ -26,6 +26,20 @@ import type { GameSummary } from "@/lib/game-summary"
 type InventoryDict = Dictionary["inventory"]
 type StatusKey = keyof typeof GameStatus
 
+type FieldErrors = Partial<
+  Record<
+    | "title"
+    | "platformId"
+    | "genre"
+    | "status"
+    | "condition"
+    | "hours"
+    | "price"
+    | "date",
+    string
+  >
+>
+
 const STATUS_KEYS = Object.keys(GameStatus) as StatusKey[]
 
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -70,6 +84,7 @@ export function EditGameForm({
   const [date, setDate] = useState(game.purchaseDate?.slice(0, 10) ?? "")
   const [notes, setNotes] = useState(game.notes ?? "")
   const [images, setImages] = useState<string[]>(game.images)
+  const [errors, setErrors] = useState<FieldErrors>({})
 
   const detailHref = `/${lang}/app/games/${game.id}`
 
@@ -109,32 +124,70 @@ export function EditGameForm({
   }
 
   function save() {
+    const nextErrors: FieldErrors = {}
+
     const cleanTitle = title.trim().slice(0, 200)
-    if (!cleanTitle || !platformId) {
-      toast.error(dict.errorUpdate)
-      return
-    }
+    if (!cleanTitle) nextErrors.title = dict.errorTitleRequired
+
+    if (!platformId) nextErrors.platformId = dict.errorPlatformRequired
+
+    const cleanGenre = genre.trim().slice(0, 120)
+    if (!cleanGenre) nextErrors.genre = dict.errorGenreRequired
+
+    const cleanCondition = condition.trim().slice(0, 60)
+    if (!cleanCondition) nextErrors.condition = dict.errorConditionRequired
 
     let playtimeMin: number | null = null
     const trimmedHours = hours.trim()
-    if (trimmedHours !== "") {
+    if (trimmedHours === "") {
+      nextErrors.hours = dict.errorHoursRequired
+    } else {
       const parsed = Number(trimmedHours)
       if (!Number.isFinite(parsed) || parsed < 0) {
-        toast.error(dict.errorUpdate)
-        return
+        nextErrors.hours = dict.errorHoursInvalid
+      } else {
+        playtimeMin = Math.round(parsed * 60)
       }
-      playtimeMin = Math.round(parsed * 60)
     }
 
     let parsedPrice: number | null = null
     const trimmedPrice = price.trim()
-    if (trimmedPrice !== "") {
+    if (trimmedPrice === "") {
+      nextErrors.price = dict.errorPriceRequired
+    } else {
       const parsed = Number(trimmedPrice)
       if (!Number.isFinite(parsed) || parsed < 0) {
-        toast.error(dict.errorUpdate)
-        return
+        nextErrors.price = dict.errorPriceInvalid
+      } else {
+        parsedPrice = Math.round(parsed * 100) / 100
       }
-      parsedPrice = Math.round(parsed * 100) / 100
+    }
+
+    let cleanDate: string | null = null
+    const trimmedDate = date.trim()
+    if (trimmedDate !== "") {
+      const parsed = new Date(trimmedDate)
+      if (
+        Number.isNaN(parsed.getTime()) ||
+        parsed.toISOString().slice(0, 10) !== trimmedDate
+      ) {
+        nextErrors.date = dict.errorDateInvalid
+      } else {
+        cleanDate = trimmedDate
+      }
+    }
+
+    setErrors(nextErrors)
+    if (
+      nextErrors.title ||
+      nextErrors.platformId ||
+      nextErrors.genre ||
+      nextErrors.condition ||
+      nextErrors.hours ||
+      nextErrors.price ||
+      nextErrors.date
+    ) {
+      return
     }
 
     const cleanImages = canCustomCover
@@ -156,12 +209,12 @@ export function EditGameForm({
         body: JSON.stringify({
           title: cleanTitle,
           platformId,
-          genre: genre.trim().slice(0, 120) || null,
+          genre: cleanGenre || null,
           status,
           playtimeMin,
-          condition: condition.trim().slice(0, 60) || null,
+          condition: cleanCondition || null,
           purchasePrice: parsedPrice,
-          purchaseDate: date.trim() === "" ? null : date,
+          purchaseDate: cleanDate,
           notes: notes.trim().slice(0, 2000) || null,
           ...(canCustomCover ? { images: cleanImages } : {}),
         }),
@@ -256,18 +309,27 @@ export function EditGameForm({
             <Input
               id={`edit-title-${game.id}`}
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => {
+                setTitle(event.target.value)
+                if (errors.title) setErrors((prev) => ({ ...prev, title: undefined }))
+              }}
               maxLength={200}
+              placeholder={dict.titlePlaceholder}
+              aria-invalid={errors.title ? true : undefined}
               autoComplete="off"
             />
+            {errors.title && (
+              <p className="text-sm text-destructive">{errors.title}</p>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor={`edit-platform-${game.id}`}>{dict.platform}</Label>
             <Select
               value={platformId}
-              onValueChange={(value) =>
-                value != null && setPlatformId(value)
-              }
+              onValueChange={(value) => {
+                if (value != null) setPlatformId(value)
+                if (value) setErrors((prev) => ({ ...prev, platformId: undefined }))
+              }}
               itemToStringLabel={(value) =>
                 platforms.find((p) => p.id === value)?.name ?? ""
               }
@@ -275,6 +337,7 @@ export function EditGameForm({
               <SelectTrigger
                 id={`edit-platform-${game.id}`}
                 className="w-full"
+                aria-invalid={errors.platformId ? true : undefined}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -286,16 +349,27 @@ export function EditGameForm({
                 ))}
               </SelectContent>
             </Select>
+            {errors.platformId && (
+              <p className="text-sm text-destructive">{errors.platformId}</p>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor={`edit-genre-${game.id}`}>{dict.genre}</Label>
             <Input
               id={`edit-genre-${game.id}`}
               value={genre}
-              onChange={(event) => setGenre(event.target.value.slice(0, 120))}
+              onChange={(event) => {
+                setGenre(event.target.value.slice(0, 120))
+                if (errors.genre) setErrors((prev) => ({ ...prev, genre: undefined }))
+              }}
               maxLength={120}
+              placeholder={dict.genrePlaceholder}
+              aria-invalid={errors.genre ? true : undefined}
               autoComplete="off"
             />
+            {errors.genre && (
+              <p className="text-sm text-destructive">{errors.genre}</p>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor={`edit-status-${game.id}`}>{dict.statusLabel}</Label>
@@ -321,10 +395,18 @@ export function EditGameForm({
             <Input
               id={`edit-condition-${game.id}`}
               value={condition}
-              onChange={(event) => setCondition(event.target.value.slice(0, 60))}
+              onChange={(event) => {
+                setCondition(event.target.value.slice(0, 60))
+                if (errors.condition) setErrors((prev) => ({ ...prev, condition: undefined }))
+              }}
               maxLength={60}
+              placeholder={dict.conditionPlaceholder}
+              aria-invalid={errors.condition ? true : undefined}
               autoComplete="off"
             />
+            {errors.condition && (
+              <p className="text-sm text-destructive">{errors.condition}</p>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor={`edit-hours-${game.id}`}>{dict.playtimeLabel}</Label>
@@ -335,8 +417,16 @@ export function EditGameForm({
               min="0"
               step="0.1"
               value={hours}
-              onChange={(event) => setHours(event.target.value.slice(0, 7))}
+              onChange={(event) => {
+                setHours(event.target.value.slice(0, 7))
+                if (errors.hours) setErrors((prev) => ({ ...prev, hours: undefined }))
+              }}
+              placeholder={dict.hoursPlaceholder}
+              aria-invalid={errors.hours ? true : undefined}
             />
+            {errors.hours && (
+              <p className="text-sm text-destructive">{errors.hours}</p>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor={`edit-price-${game.id}`}>{dict.purchasePrice}</Label>
@@ -348,8 +438,16 @@ export function EditGameForm({
               max="999999.99"
               step="0.01"
               value={price}
-              onChange={(event) => setPrice(event.target.value.slice(0, 12))}
+              onChange={(event) => {
+                setPrice(event.target.value.slice(0, 12))
+                if (errors.price) setErrors((prev) => ({ ...prev, price: undefined }))
+              }}
+              placeholder={dict.pricePlaceholder}
+              aria-invalid={errors.price ? true : undefined}
             />
+            {errors.price && (
+              <p className="text-sm text-destructive">{errors.price}</p>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor={`edit-date-${game.id}`}>{dict.purchaseDate}</Label>
@@ -357,8 +455,15 @@ export function EditGameForm({
               id={`edit-date-${game.id}`}
               type="date"
               value={date}
-              onChange={(event) => setDate(event.target.value)}
+              onChange={(event) => {
+                setDate(event.target.value)
+                if (errors.date) setErrors((prev) => ({ ...prev, date: undefined }))
+              }}
+              aria-invalid={errors.date ? true : undefined}
             />
+            {errors.date && (
+              <p className="text-sm text-destructive">{errors.date}</p>
+            )}
           </div>
         </div>
 
@@ -369,6 +474,7 @@ export function EditGameForm({
             rows={4}
             maxLength={2000}
             value={notes}
+            placeholder={dict.notesPlaceholder}
             onChange={(event) => setNotes(event.target.value.slice(0, 2000))}
           />
         </div>

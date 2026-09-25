@@ -56,6 +56,7 @@ export function AddGameDialog({
     platforms[0]?.id ?? "",
   )
   const [addingManual, setAddingManual] = useState(false)
+  const [manualError, setManualError] = useState<string | null>(null)
 
   function handleSearch() {
     const q = query.trim()
@@ -120,7 +121,11 @@ export function AddGameDialog({
   async function handleManualAdd() {
     const title = manualTitle.trim().slice(0, 200)
     const platformId = manualPlatformId
-    if (!title || !platformId) return
+    if (!title || !platformId) {
+      setManualError(!title ? dict.errorTitleRequired : dict.errorPlatformRequired)
+      return
+    }
+    setManualError(null)
     setAddingManual(true)
     const res = await fetch("/api/games", {
       method: "POST",
@@ -148,7 +153,10 @@ export function AddGameDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setManualError(null)
+      }}>
       <DialogTrigger render={<Button />}>
         <Plus aria-hidden="true" />
         {dict.add}
@@ -253,7 +261,10 @@ export function AddGameDialog({
               <Input
                 id="manual-title"
                 value={manualTitle}
-                onChange={(event) => setManualTitle(event.target.value)}
+                onChange={(event) => {
+                  setManualTitle(event.target.value)
+                  if (manualError) setManualError(null)
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault()
@@ -261,7 +272,8 @@ export function AddGameDialog({
                   }
                 }}
                 maxLength={200}
-                placeholder={dict.manualTitleLabel}
+                placeholder={dict.titlePlaceholder}
+                aria-invalid={manualError === dict.errorTitleRequired ? true : undefined}
                 autoComplete="off"
               />
               <Label htmlFor="manual-platform" className="sr-only">
@@ -270,9 +282,10 @@ export function AddGameDialog({
               <span className="flex items-center gap-2">
                 <Select
                   value={manualPlatformId}
-                  onValueChange={(value) =>
-                    value != null && setManualPlatformId(value)
-                  }
+                  onValueChange={(value) => {
+                    if (value != null) setManualPlatformId(value)
+                    if (value) setManualError(null)
+                  }}
                   itemToStringLabel={(value) =>
                     platforms.find((p) => p.id === value)?.name ?? ""
                   }
@@ -281,6 +294,9 @@ export function AddGameDialog({
                     id="manual-platform"
                     className="w-full"
                     aria-label={dict.manualPlatformLabel}
+                    aria-invalid={
+                      manualError === dict.errorPlatformRequired ? true : undefined
+                    }
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -294,16 +310,15 @@ export function AddGameDialog({
                 </Select>
               </span>
             </div>
+            {manualError && (
+              <p className="text-sm text-destructive">{manualError}</p>
+            )}
             <Button
               type="button"
               size="sm"
               className="w-fit"
               onClick={() => void handleManualAdd()}
-              disabled={
-                manualTitle.trim().length === 0 ||
-                !manualPlatformId ||
-                addingManual
-              }
+              disabled={addingManual}
             >
               {addingManual ? dict.adding : dict.add}
             </Button>

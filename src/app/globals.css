@@ -128,3 +128,11 @@
     @apply font-sans;
   }
 }
+
+/* Suspendida de transiciones mientras se cambia de tema (disableTransitionOnChange
+   del ThemeProvider propio; antes la proveía next-themes como utilidad del user). */
+.gv-no-transition *,
+.gv-no-transition *::before,
+.gv-no-transition *::after {
+  transition: none !important;
+}

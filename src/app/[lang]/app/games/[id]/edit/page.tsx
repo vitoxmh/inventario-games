@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { lang } from "next/root-params"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { getImageLimit, isPaidPlan } from "@/lib/plans"
+import { getImageLimit } from "@/lib/plans"
 import { toGameSummary } from "@/lib/game-summary"
 import { EditGameForm } from "@/components/inventory/edit-game-form"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
@@ -48,8 +48,8 @@ export default async function EditGamePage({
   ])
   if (!game) notFound()
 
-  const canCustomCover = await isPaidPlan(session.user.plan)
   const maxImages = await getImageLimit(session.user.plan)
+  const canCustomCover = maxImages > 0
 
   return (
     <EditGameForm
