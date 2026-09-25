@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Search, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -217,6 +217,7 @@ export function AdminGamesClient({
               disabled={isPending || page <= 1}
               onClick={() => load(page - 1, q)}
             >
+              <ChevronLeft aria-hidden="true" />
               {dict.prev}
             </Button>
             <span className="text-sm text-muted-foreground tabular-nums">
@@ -230,6 +231,7 @@ export function AdminGamesClient({
               onClick={() => load(page + 1, q)}
             >
               {dict.next}
+              <ChevronRight aria-hidden="true" />
             </Button>
           </div>
         </div>

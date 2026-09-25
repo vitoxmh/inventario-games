@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { LogOut, Gamepad2, User, CreditCard, Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -30,6 +31,7 @@ type Labels = {
 
 export function AuthNav({ locale, labels }: { locale: Locale; labels: Labels }) {
   const { data: session, status } = useSession()
+  const router = useRouter()
 
   if (status === "loading") {
     return <Skeleton className="h-8 w-24" />
@@ -80,20 +82,22 @@ export function AuthNav({ locale, labels }: { locale: Locale; labels: Labels }) 
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem render={<Link href={`/${locale}/app`} />}>
+        <DropdownMenuItem onClick={() => router.push(`/${locale}/app`)}>
           <Gamepad2 aria-hidden="true" />
           {labels.dashboard}
         </DropdownMenuItem>
-        <DropdownMenuItem render={<Link href={`/${locale}/app/account`} />}>
+        <DropdownMenuItem onClick={() => router.push(`/${locale}/app/account`)}>
           <User aria-hidden="true" />
           {labels.account}
         </DropdownMenuItem>
-        <DropdownMenuItem render={<Link href={`/${locale}/app/billing`} />}>
+        <DropdownMenuItem onClick={() => router.push(`/${locale}/app/billing`)}>
           <CreditCard aria-hidden="true" />
           {labels.billing}
         </DropdownMenuItem>
         {session.user.role === "admin" && (
-          <DropdownMenuItem render={<Link href={`/${locale}/admin/users`} />}>
+          <DropdownMenuItem
+            onClick={() => router.push(`/${locale}/admin/users`)}
+          >
             <Shield aria-hidden="true" />
             {labels.admin}
           </DropdownMenuItem>

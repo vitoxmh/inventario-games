@@ -3,9 +3,11 @@ import { randomBytes } from "node:crypto"
 import { prisma } from "@/lib/db"
 import { sendVerificationEmail } from "@/lib/email"
 import {
+  getClientIp,
   isRateLimitedRequest,
   rateLimitJsonResponse,
 } from "@/lib/rate-limit"
+import { verifyTurnstileToken } from "@/lib/turnstile"
 
 export const dynamic = "force-dynamic"
 
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
     return rateLimitJsonResponse()
   }
 
-  let body: { email?: string; locale?: string }
+  let body: { email?: string; locale?: string; captchaToken?: string }
   try {
     body = await request.json()
   } catch {
@@ -35,6 +37,19 @@ export async function POST(request: Request) {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "invalid_email" }, { status: 400 })
+  }
+
+  // Captcha antes de la BD: el 400 es igual exista o no la cuenta, así que
+  // seguir verificando no filtra qué emails están registrados.
+  const captcha = await verifyTurnstileToken({
+    token: body.captchaToken,
+    remoteIp: getClientIp(request),
+  })
+  if (!captcha.ok) {
+    if (captcha.reason === "not_configured") {
+      return NextResponse.json({ error: "unknown" }, { status: 500 })
+    }
+    return NextResponse.json({ error: "captcha_failed" }, { status: 400 })
   }
 
   const user = await prisma.user.findUnique({

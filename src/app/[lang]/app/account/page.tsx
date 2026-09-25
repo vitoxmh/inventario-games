@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { lang } from "next/root-params"
 import { redirect } from "next/navigation"
+import { LogOut } from "lucide-react"
 import { auth, signOut } from "@/auth"
 import { Button } from "@/components/ui/button"
 import {
@@ -66,6 +67,7 @@ export default async function AccountPage() {
         <form action={logoutAction} className="flex justify-end">
           <input type="hidden" name="locale" value={locale} />
           <Button type="submit" variant="outline">
+            <LogOut aria-hidden="true" />
             {dict.app.logout}
           </Button>
         </form>

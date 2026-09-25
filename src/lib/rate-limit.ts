@@ -12,7 +12,9 @@ type Window = { start: number; count: number }
 
 const store = new Map<string, Window>()
 
-function getClientIp(request: Request): string {
+/** IP del cliente (x-forwarded-for → x-real-ip → "local"). También la usa el
+ *  captcha como `remoteip` de siteverify. */
+export function getClientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")
   const ip = forwarded?.split(",")[0]?.trim()
   return (

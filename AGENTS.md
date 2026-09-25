@@ -12,6 +12,85 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 SaaS de inventario para coleccionistas de videojuegos. Repo pequeño, monorepo-ish dentro de `D:\app\iven`. Todo el código de la app vive en `src/`. **NO hay** `middleware.ts`: se usa `proxy.ts` (Next 16) con export `proxy` + `config.matcher`.
 
+## Seguridad — obligatoria en TODO cambio (XSS, SQLi y compañía)
+
+Regla base: **la entrada del cliente es hostil hasta que se valida en el servidor.** Ningún cambio se da por bueno si no se puede responder "¿qué pasa si el usuario manda `"><script>...` o `' OR 1=1 --`?". Ante la duda, se valida/allowlista; nunca se "sanea" a mano con regex.
+
+### 1. XSS / inyección en el navegador
+- React escapa por defecto: el texto de usuario (`title`, `notes`, `genre`, `condition`) se pinta como texto, NUNCA como HTML. Nada de plantilla de strings para construir markup.
+- **Prohibido `dangerouslySetInnerHTML`** (y `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `new Function`). Si una feature exige HTML crudo (p. ej. markdown de descripciones), hay que añadir un sanitizador mantenido (DOMPurify/jsanitize) al pipeline y sanitizar también en servidor, no solo en cliente. Si no hay sanitizador, la feature no se implementa.
+- Nunca renderizar URLs de usuario como `href`/`src` sin validarlos: **`javascript:`, `data:`, `vbscript:` y `//host` se bloquean siempre**. Patrón ya en el repo: `isValidImageUrl()` en `src/app/api/games/[id]/route.ts:8` (solo `http:`/`https:` o rutas `/uploads/`). Aplicar la misma validación en CUALQUIER campo de URL nuevo, en el servidor (no confiar en la validación del cliente).
+- No meter valores de usuario en atributos `style`, `srcset`, `data-*` que se apliquen, ni construir `<script>`/`<style>` con interpolación (rompe además la CSP con nonce). La CSP con nonce de `src/proxy.ts` es una capa extra, NO un sustituto de escapar la salida.
+- Abrir la CSP o añadir un origen externo a `connect-src`/`img-src` es una decisión consciente: justifica en el PR por qué hace falta.
+
+### 2. SQL injection
+- Prisma **parameteriza** todo. Regla: solo `prisma.*` con `where`/`data` como objeto. **Prohibido** `$queryRawUnsafe` / `$executeRawUnsafe` y cualquier concatenación que acabe en raw SQL.
+- Si de verdad hace falta SQL crudo, usar SIEMPRE el tagged template (`prisma.$queryRaw\`SELECT ... WHERE id = ${id}\``), que escapa los binds; jamás con `+`/`.replace()` sobre la query. Si se necesita una tabla/columna dinámica, va por allowlist de constantes, nunca por el input.
+- No construir filtros con `OR`/`where` a partir de query params sin allowlist. Búsqueda de texto: preferir los filtros/contains de Prisma; si hay `sort` dinámico, mapear contra una lista cerrada de columnas (nunca pasar el parámetro crudo a `orderBy`).
+- Migraciones: SQL en `prisma/migrations/*` es estático y revisable; nada de DDL generado con valores de runtime.
+
+### 3. Broken Authentication (OWASP A07)
+- El JWT de sesión **nunca es la fuente de autorización**: los claims (`role`, `plan`, `banned`) son una caché. Para decisiones que importan, releer de BD (`requireAdmin()`/`getUser()` en `src/lib/guard.ts`); el `jwt` callback ya refresca en cada request, no degradarlo a "leer el token y confiar".
+- Toda ruta nueva `api/*` empieza por sesión: `const session = await auth(); if (!session?.user?.id) return 401` (401 = sin sesión, 403 = con sesión sin permiso). El `proxy.ts` NO protege `api` (queda fuera del `matcher`): cada handler es su propia frontera de confianza.
+- Admin: `requireAdmin()` **devuelve** un `AdminGuard`, no lanza (lección 15). Toda ruta `api/admin/*` copia el patrón de `api/admin/plans/route.ts` y mira el retorno.
+- No inventar un segundo sistema de auth (token propio en cookie/localStorage, JWT manual, `?userId=` para "debug"): una sola sesión (NextAuth v5) y siempre server-side.
+- Credenciales: hash con `bcryptjs` (nunca MD5/SHA1 ni texto plano), comparación con `bcrypt.compare` (tiempo constante), longitud mínima razonable en registro, y `emailVerifiedAt` obligatorio para entrar (ya en `authorize`).
+- **No enumerar usuarios**: login, verificación y reset responden el mismo mensaje/estado exista o no el email (evita "account enumeration"); el rate limit de `api/auth/*` es parte del control, no un extra.
+- Sesiones: no reusar ni devolver el session token al cliente en JSON; logout server-side; no barato "expirar" la sesión solo por `maxAge` del token para eventos sensibles (baneo/rol se resuelven en BD, ya cubierto por los callbacks).
+- `AUTH_SECRET` presente y con entropy; nunca en `NEXT_PUBLIC_*`, nunca en logs ni en el repo. Sin `AUTH_SECRET`, NextAuth falla — no degradar a un secret por defecto hardcodeado.
+- Open redirect: validar `callbackUrl`/`redirect` contra una allowlist de paths internos (solo relativas que empiecen por `/`, nunca `//host` ni `http:`). Cookies de sesión: `httpOnly` + `secure` en https + `sameSite=lax` (los valores por defecto de NextAuth; no cambiarlos a la baja).
+- No filtrar en el login qué falla exactamente (password incorrecto vs email sin verificar vs baneado) más allá de lo ya expuesto al usuario legítimo; los detalles van a `console.error` en servidor.
+
+### 4. CSRF (OWASP A01) e IDOR (OWASP A01/BOLA)
+- CSRF: las cookies de sesión se envían solas, así que **toda mutación es POST/PATCH/DELETE + comprobación de origen**. Nunca mutar estado en GET ni en un Server Action sin validar sesión. No tocar `skipCSRFCheck`/`allowedOrigins` de NextAuth para "hacer que funcione": si una mutación falla por CSRF, el bug es del cliente (fetch con `method` correcto y `Content-Type: application/json`), no de la config.
+- Los Route Handlers con cookie de sesión están cubiertos por los checks de origin de Next; los webhooks de terceros no: ahí la autenticación es la **firma** (`stripe.webhooks.constructEvent` con `STRIPE_WEBHOOK_SECRET`, equivalente en MP con `MP_WEBHOOK_SECRET`), verificada ANTES de tocar la BD. Un webhook sin validar es una puerta trasera de escritura.
+- **IDOR**: el `userId` sale SIEMPRE de la sesión, nunca del body/query/params. Toda query por recurso filtra por propietario: `where: { id, userId: session.user.id }` (patrón de `api/games/[id]` con `updateMany`/`deleteMany` + `count === 0 → 404`). Sin ese filtro, cualquiera edita o borra el juego de otro con solo saber el id.
+- Un id de ruta no es autorización: existence check + owner check en la MISMA query. `findUnique({ where: { id } })` sin `userId` y luego "comprobar después" es un bug aunque se filtre en el cliente.
+- Verificar también en lecturas (`GET` de un recurso ajeno) y en acciones derivadas (borrar imagen por id, cambiar estado, descargar). Y en panel admin: el rol se comprueba con `requireAdmin()` en el servidor, nunca confiando en que la UI esconde el enlace.
+- No comparar contraseñas/tokens con `==`; no loguear contraseñas, sesiones, `AUTH_SECRET`, tokens de Stripe/MP o de Blob. Nada de secretos en `NEXT_PUBLIC_*` (se compilan al navegador).
+
+### 5. Validación de entrada, subidas y DoS
+- Todo `body.x` entra como `unknown`: `typeof` + `String(...).trim().slice(0, N)` + validación de rango/formato antes de persistir (referencia: `api/games/route.ts` y `api/games/[id]/route.ts`). Enums contra los exportados por Prisma (`GameStatus`, `Plan`, ...), no contra strings inventados. Fechas: `new Date(...)` + `Number.isNaN(getTime())`. Números: `Number.isFinite`/rangos.
+- URLs de imágenes: validar esquema/longitud; idealmente allowlist de hosts (RAWG, el dominio de Blob) en vez de "cualquier https".
+- Uploads (`api/games/upload`): mime en allowlist, tamaño máximo, y el nombre de archivo **lo genera el servidor** (`randomBytes`) — jamás usar el nombre enviado por el cliente (path traversal). El contenido se reprocesa con `sharp` (elimina payloads embebidos).
+- Rate limit en endpoints nuevos/expensivos con `isRateLimitedRequest` + `rateLimitJsonResponse` (ver `src/lib/rate-limit.ts`), sobre todo auth y uploads.
+- Responder 400/401/403 con errores genéricos; los detalles (stack, `error.message` de BD) solo a `console.error` en servidor.
+
+### Checklist antes de dar por terminado un cambio
+1. ¿Todo input pasa por validación en servidor antes de tocar BD o render? ¿Con longitudes/rangos?
+2. ¿Algún `dangerouslySetInnerHTML`/HTML crudo/`javascript:` en una URL? → fuera.
+3. ¿Algún raw SQL con interpolación, o `userId`/rol tomado del cliente? → fuera.
+4. ¿La ruta comprueba sesión y propiedad del recurso? ¿Admin con `requireAdmin()` verificado?
+5. ¿La mutación es POST/PATCH/DELETE y no depende solo de la cookie? (CSRF)
+6. ¿Se loguea algún secreto o dato personal? ¿Se abre la CSP sin justificar?
+7. `npm run lint` + `npm run build` en verde, y el diff releído buscando sinks (`innerHTML`, raw, `eval`, `${` dentro de JSX/atributos).
+
+## Patrones de diseño — aplica el mejor según el caso
+
+Principio operative: **primero replica el patrón que ya existe en el repo** (mismo problema ya resuelto en otro archivo) y solo introduce uno nuevo si el caso lo pide. Repo pequeño: no montes una capa de abstracción para un solo uso.
+
+| Si el caso es… | Patrón y dónde vive en este repo |
+|---|---|
+| Endpoint CRUD | Route Handler delgado (`src/app/api/**/route.ts`) que valida + delega; la lógica de negocio va en `src/lib/*` (ver `api/games/*` → `src/lib/{plans,platforms,game-summary}.ts`) |
+| Lógica de negocio reutilizable | Función de dominio en `src/lib/` (p. ej. `getPlanLimit`), no inline en la ruta ni en el componente |
+| Múltiples proveedores con la misma interfaz (Stripe / MP) | **Strategy/Adapter**: un contrato por proveedor + registro que elige (ya existe: `src/lib/payments.ts` con `billing.ts`/`stripe.ts`/`mp.ts`) |
+| Múltiples salidas para una misma operación (Blob vs filesystem) | **Adapter** con selección por env en runtime (ver `api/games/upload`: `BLOB_READ_WRITE_TOKEN` → Blob, si no `public/uploads`) |
+| Acceso a datos con lógica de filtros/reuso | **Repository**: funciones de consulta en `src/lib/*` que devuelven datos ya filtrados; el componente no escribe Prisma |
+| Autorización por rol/permiso | **Guard/Policy**: `requireAdmin()`/`getUser()` en `src/lib/guard.ts`; el componente NUNCA decide permisos, solo los pide |
+| Datos para pintar | **Server Component** por defecto (fetch en servidor, cero secrets en el cliente); `"use client"` solo para interactividad (Base UI, toasts, uploads) |
+| Mutación desde la UI | **Server Action** si es interna, o `fetch` POST/PATCH/DELETE a un Route Handler; siempre con sesión + validación en servidor |
+| Estado compartido en cliente | **Context/Provider** (ver `src/components/site/theme-provider.tsx`) o **Compound Component** para componentes configurables; **Custom hook** para estado local compartido |
+| Variantes de un componente | `cva` / `buttonVariants` en el wrapper de `src/components/ui/*` (patrón ya establecido por shadcn) |
+| Listas heterogéneas de metadatos (planes, plataformas) | **Registry/tabla de constantes** con `as const` + tipo derivado (`PLAN_META` en `src/lib/billing.ts`, `locales` en `src/lib/i18n/locales.ts`) |
+| Errores | Result explícito o `NextResponse.json({ error })` con código genérico; no `throw` de strings para control de flujo, no filtrar detalles al cliente |
+| Cliente de BD / singleton | `src/lib/db.ts` (una instancia de Prisma con driver adapter; en dev se cachea en `globalThis`) |
+
+Checklist de diseño antes de dar el cambio por terminado:
+1. ¿Podía resolverlo reutilizando un helper/patrón existente en vez de escribir lógica nueva?
+2. ¿La ruta queda fina (validar + delegar) o se ha llenado de lógica de negocio?
+3. ¿Los tipos derivan de una fuente única (`as const` + `typeof`/enum de Prisma) en vez de repetirse como strings sueltos?
+4. ¿El componente decide permisos o datos que solo puede saber el servidor? → debe pedirlo a un Server Component/guard.
+
 ## Stack (versiones reales instaladas — NO asumas otras)
 
 | Pieza | Versión | Notas |
@@ -54,6 +133,8 @@ Nombres que el código lee (vía `process.env`):
 - MercadoPago: `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, credenciales del preapproval `MP_PREAPPROVAL_*`
 - **`BLOB_READ_WRITE_TOKEN`** (Vercel Blob) — imágenes de portada/capturas subidas en `/api/games/upload`. En Vercel el filesystem es efímero y `public/` es inmutable en runtime: sin token las subidas fallan/caen; se usa el store de Blob (plan gratuito 5GB, sin tarjeta en Hobby). Sin la variable, en local hay fallback a `public/uploads/`.
 - Email: `RESEND_API_KEY` (+ remitentes) para `src/lib/email.ts` (verificación de correo, alertas)
+- **`SITE_URL`** (SEO, obligatorio en producción) — URL pública sin barra final. Es la base de `metadataBase` y de todas las URLs absolutas que emitimos: canonical, hreflang, `openGraph.url`, `/sitemap.xml`, `/robots.txt` y el JSON-LD (`src/lib/seo.ts`, con fallback a `NEXT_PUBLIC_APP_URL` y luego a `http://localhost:3000`). Sin ella en producción los canonicals caen a localhost y Google indexa una URL inexistente. También la lee `src/app/[lang]/opengraph-image.tsx` para el host de la tarjeta social.
+- **Captcha (auth)**: Cloudflare Turnstile. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (pública; se compila en el build de Vercel: añadir + redeploy) y `TURNSTILE_SECRET_KEY` (server, valida contra siteverify). Widget en `src/components/auth/turnstile.tsx` (render explícito, `appearance: interaction-only`, token por callback, nunca input oculto en el `<form>`), verificación en `src/lib/turnstile.ts`. Aplicado en `POST /api/auth/register`, `POST /api/auth/resend-verification` y en el login por credenciales (`authorize` de `src/auth/config.ts`, con el token en `captchaToken`; el fallo devuelve el mismo `null` que una contraseña incorrecta, a propósito). `GET /api/auth/verify` NO lleva captcha: es un clic sobre el link del email, sin formulario donde pintarlo (solo rate limit). Sin la secret la verificación se omite (warning) **en desarrollo**; en `NODE_ENV=production` es fail-closed (`reason: "not_configured"`). El auto-login inmediato tras el registro exime del captcha con el `signupTicket` firmado (HMAC + `AUTH_SECRET`, 2 min, atado al email) de `src/lib/signup-ticket.ts`: **no es una credencial ni una sesión**, sin él sigue haciendo falta la contraseña.
 - `NODE_ENV`, `DATABASE_URL` para despliegue
 
 Cambios en `.env` requieren reiniciar el dev server (las env se leen a arrancar o en el primer uso según archivo).
@@ -99,7 +180,7 @@ src/
 - Servicios de pago/mail: `src/lib/payments.ts` (estratos de pago, para usar checkout por lookup de planes), `src/lib/plans.ts` (planes FREE/PRO/COLLECTOR), `src/lib/billing.ts` (portal de cliente), `src/lib/stripe.ts`/`mp.ts` (clientes SDK configurados por env).
 
 ### Proxy / seguridad (`src/proxy.ts`)
-- **CSP estricta con nonce** (`strict-dynamic`): se genera nonce por petición (crypto `randomBytes`) y se propaga como cabecera de request `x-nonce` (requisito de SSR dinámico de Next) + de respuesta. `'unsafe-eval'` solo en dev. `connect-src 'self'` (StripJS va por `frame-src`). Si algo de terceros necesita conectividad (webhooks client-side), hay que abrir la CSP intencionalmente.
+- **CSP estricta con nonce** (`strict-dynamic`): se genera nonce por petición (crypto `randomBytes`) y se propaga como cabecera de request `x-nonce` (requisito de SSR dinámico de Next) + de respuesta. `'unsafe-eval'` solo en dev. `connect-src 'self' https://challenges.cloudflare.com` (Turnstile exige su host en script/connect/frame según sus docs; StripJS va por `frame-src`). Si algo de terceros necesita conectividad (webhooks client-side), hay que abrir la CSP intencionalmente.
 - Cabeceras: nosniff, DENY frame, Referrer-Policy, Permissions-Policy, HSTS (solo https).
 - Redirección de locale: paths sin `/es|/en` → se añade el detector por `accept-language` (default `es`).
 - Guard de `/app/**`: valida JWT de NextAuth (`getToken` con `AUTH_SECRET`); sin sesión → `/login?callbackUrl=...`.

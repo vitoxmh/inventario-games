@@ -245,7 +245,14 @@ export function AddGameDialog({
                 disabled={addingId === game.id || !game.platformId}
                 title={!game.platformId ? dict.platformNotAvailable : undefined}
               >
-                {addingId === game.id ? dict.adding : dict.add}
+                {addingId === game.id ? (
+                  dict.adding
+                ) : (
+                  <>
+                    <Plus aria-hidden="true" />
+                    {dict.add}
+                  </>
+                )}
               </Button>
             </div>
           ))}
@@ -320,7 +327,14 @@ export function AddGameDialog({
               onClick={() => void handleManualAdd()}
               disabled={addingManual}
             >
-              {addingManual ? dict.adding : dict.add}
+              {addingManual ? (
+                dict.adding
+              ) : (
+                <>
+                  <Plus aria-hidden="true" />
+                  {dict.add}
+                </>
+              )}
             </Button>
           </div>
         </div>

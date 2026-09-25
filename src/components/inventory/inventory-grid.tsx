@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Clock, Gamepad2, RotateCcw, Search } from "lucide-react"
+import { Clock, Gamepad2, ListFilter, RotateCcw, Search, Shapes, ArrowUpDown, Rows3, ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,13 +15,14 @@ import {
 } from "@/components/ui/select"
 import { GameCardActions } from "@/components/inventory/game-card-actions"
 import { GameStatus } from "@/generated/prisma/enums"
+import { STATUS_ICONS, type StatusKey } from "@/lib/status-meta"
 import type { GameSummary } from "@/lib/game-summary"
 import type { Locale } from "@/lib/i18n/locales"
 import type { Dictionary } from "@/messages/es"
 
 type InventoryDict = Dictionary["inventory"]
 
-const STATUS_KEYS = Object.keys(GameStatus) as Array<keyof typeof GameStatus>
+const STATUS_KEYS = Object.keys(GameStatus) as StatusKey[]
 
 type SortKey = "newest" | "title" | "value" | "playtime"
 
@@ -153,15 +154,20 @@ export function InventoryGrid({
             }
           >
             <SelectTrigger size="sm" aria-label={dict.filterStatus}>
+              <ListFilter className="text-muted-foreground" aria-hidden="true" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{dict.all}</SelectItem>
-              {STATUS_KEYS.map((key) => (
-                <SelectItem key={key} value={key}>
-                  {dict.statuses[key]}
-                </SelectItem>
-              ))}
+              {STATUS_KEYS.map((key) => {
+                const StatusIcon = STATUS_ICONS[key]
+                return (
+                  <SelectItem key={key} value={key}>
+                    <StatusIcon aria-hidden="true" />
+                    {dict.statuses[key]}
+                  </SelectItem>
+                )
+              })}
             </SelectContent>
           </Select>
           <Select
@@ -172,8 +178,12 @@ export function InventoryGrid({
                 setPage(1)
               }
             }}
+            itemToStringLabel={(value) =>
+              value === "all" ? dict.all : String(value ?? "")
+            }
           >
             <SelectTrigger size="sm" aria-label={dict.filterPlatform}>
+              <Gamepad2 className="text-muted-foreground" aria-hidden="true" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -193,8 +203,12 @@ export function InventoryGrid({
                 setPage(1)
               }
             }}
+            itemToStringLabel={(value) =>
+              value === "all" ? dict.all : String(value ?? "")
+            }
           >
             <SelectTrigger size="sm" aria-label={dict.filterGenre}>
+              <Shapes className="text-muted-foreground" aria-hidden="true" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -228,6 +242,7 @@ export function InventoryGrid({
             }
           >
             <SelectTrigger size="sm" aria-label={dict.sortBy}>
+              <ArrowUpDown className="text-muted-foreground" aria-hidden="true" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -267,6 +282,7 @@ export function InventoryGrid({
                 onClick={resetFilters}
                 className="mt-3"
               >
+                <RotateCcw aria-hidden="true" />
                 {dict.clearFilters}
               </Button>
             )}
@@ -359,6 +375,7 @@ export function InventoryGrid({
               itemToStringLabel={(value) => value}
             >
               <SelectTrigger size="sm" aria-label={dict.perPage}>
+                <Rows3 className="text-muted-foreground" aria-hidden="true" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -381,6 +398,7 @@ export function InventoryGrid({
               disabled={safePage <= 1}
               onClick={() => setPage(safePage - 1)}
             >
+              <ChevronLeft aria-hidden="true" />
               {dict.prev}
             </Button>
             <span className="text-sm text-muted-foreground tabular-nums">
@@ -394,6 +412,7 @@ export function InventoryGrid({
               onClick={() => setPage(safePage + 1)}
             >
               {dict.next}
+              <ChevronRight aria-hidden="true" />
             </Button>
           </div>
           </div>

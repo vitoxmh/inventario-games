@@ -4,6 +4,9 @@ import Google from "next-auth/providers/google"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/db"
 import { ADMIN_EMAILS } from "@/lib/admin-emails"
+import { getClientIp } from "@/lib/rate-limit"
+import { verifySignupTicket } from "@/lib/signup-ticket"
+import { verifyTurnstileToken } from "@/lib/turnstile"
 
 const hasGoogle = Boolean(
   process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
@@ -26,8 +29,10 @@ export const authConfig = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        captchaToken: { label: "Captcha", type: "text" },
+        signupTicket: { label: "Signup ticket", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = String(credentials?.email ?? "")
           .trim()
           .toLowerCase()
@@ -35,6 +40,22 @@ export const authConfig = {
 
         if (!email || !password) return null
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
+
+        // Turnstile antes de tocar la BD ni comparar contraseñas. Se exime solo
+        // con un ticket de alta válido para este email (el registro ya pasó el
+        // captcha y el token de un solo uso ya se consumió ahí).
+        if (!verifySignupTicket(credentials?.signupTicket, email)) {
+          const captcha = await verifyTurnstileToken({
+            token: credentials?.captchaToken,
+            remoteIp: getClientIp(request),
+          })
+          if (!captcha.ok) {
+            // Mismo `null` que una contraseña incorrecta: no se le dice al
+            // atacante qué capa falló (el detalle va al log del servidor).
+            console.warn("[auth] login rechazado por captcha:", captcha.reason)
+            return null
+          }
+        }
 
         const user = await prisma.user.findUnique({ where: { email } })
         if (!user?.passwordHash) return null

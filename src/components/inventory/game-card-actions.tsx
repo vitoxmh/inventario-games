@@ -26,12 +26,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { GameStatus } from "@/generated/prisma/enums"
+import { STATUS_ICONS, type StatusKey } from "@/lib/status-meta"
 import type { Dictionary } from "@/messages/es"
 import type { Locale } from "@/lib/i18n/locales"
 import type { GameSummary } from "@/lib/game-summary"
 
 type InventoryDict = Dictionary["inventory"]
-type StatusKey = keyof typeof GameStatus
 
 export function GameCardActions({
   game,
@@ -99,17 +99,21 @@ export function GameCardActions({
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
             <DropdownMenuLabel>{dict.statusLabel}</DropdownMenuLabel>
-            {(Object.keys(GameStatus) as StatusKey[]).map((key) => (
-              <DropdownMenuCheckboxItem
-                key={key}
-                checked={key === status}
-                disabled={busyStatus === key}
-                closeOnClick
-                onCheckedChange={() => changeStatus(key)}
-              >
-                {dict.statuses[key]}
-              </DropdownMenuCheckboxItem>
-            ))}
+            {(Object.keys(GameStatus) as StatusKey[]).map((key) => {
+              const StatusIcon = STATUS_ICONS[key]
+              return (
+                <DropdownMenuCheckboxItem
+                  key={key}
+                  checked={key === status}
+                  disabled={busyStatus === key}
+                  closeOnClick
+                  onCheckedChange={() => changeStatus(key)}
+                >
+                  <StatusIcon aria-hidden="true" />
+                  {dict.statuses[key]}
+                </DropdownMenuCheckboxItem>
+              )
+            })}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push(detailHref)}>

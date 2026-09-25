@@ -2,7 +2,7 @@ import Link from "next/link"
 import type { Metadata } from "next"
 import { lang } from "next/root-params"
 import { redirect } from "next/navigation"
-import { ShieldAlert } from "lucide-react"
+import { Home, ShieldAlert } from "lucide-react"
 import { auth } from "@/auth"
 import { buttonVariants } from "@/components/ui/button"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
@@ -37,6 +37,7 @@ export default async function SuspendedPage() {
         <p className="text-muted-foreground">{dict.app.suspendedBody}</p>
       </div>
       <Link href={`/${locale}`} className={buttonVariants({ variant: "outline" })}>
+        <Home aria-hidden="true" />
         {dict.app.returnHome}
       </Link>
     </div>

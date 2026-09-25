@@ -7,7 +7,9 @@ import { ThemeProvider } from "@/components/site/theme-provider"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { Toaster } from "@/components/ui/sonner"
-import { locales } from "@/lib/i18n/locales"
+import { getDictionary } from "@/lib/i18n/get-dictionary"
+import { isLocale, locales } from "@/lib/i18n/locales"
+import { OG_LOCALE, siteUrl } from "@/lib/seo"
 import "../globals.css"
 
 const geistSans = Geist({
@@ -20,38 +22,49 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 })
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
-  title: {
-    default: "GameVault",
-    template: "%s · GameVault",
-  },
-  description:
-    "The definitive inventory SaaS for video game collectors. Organize, value and sync your collection in the cloud.",
-  openGraph: {
-    type: "website",
-    siteName: "GameVault",
-    title: "GameVault",
-    description:
-      "The definitive inventory SaaS for video game collectors. Organize, value and sync your collection in the cloud.",
-    url: "/",
-  },
-  twitter: {
-    card: "summary",
-    site: "@gamevault",
-    title: "GameVault",
-  },
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  alternates: {
-    languages: {
-      es: "/es",
-      en: "/en",
+/*
+ * Metadata por locale: la marca y la descripción salen del diccionario, no de
+ * literales en inglés (la web por defecto es `es`). El `title.template` solo se
+ * aplica a las páginas que fijan su propio title; las públicas que ya incluyen
+ * la marca en el texto usan `absolute`.
+ *
+ * `canonical` y `hreflang` NO se declaran aquí a propósito: se heredan tal cual
+ * a /login, /signup o /app, donde serían enlaces canónicos falsos. Solo las
+ * páginas públicas los declaran con buildAlternates().
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary()
+  const currentLocale = await lang()
+  const locale = isLocale(currentLocale) ? currentLocale : "es"
+  const brand = dict.site.name
+
+  return {
+    metadataBase: siteUrl(),
+    applicationName: brand,
+    title: {
+      default: dict.seo.homeTitle,
+      template: `%s · ${brand}`,
     },
-  },
+    description: dict.seo.homeDescription,
+    openGraph: {
+      type: "website",
+      siteName: brand,
+      locale: OG_LOCALE[locale],
+      url: `/${locale}`,
+      title: dict.seo.homeTitle,
+      description: dict.seo.homeDescription,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: dict.seo.homeTitle,
+      description: dict.seo.homeDescription,
+    },
+    formatDetection: {
+      email: false,
+      address: false,
+      telephone: false,
+    },
+  }
 }
 
 export function generateStaticParams() {

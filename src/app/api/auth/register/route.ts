@@ -5,9 +5,12 @@ import { prisma, Prisma } from "@/lib/db"
 import { sendVerificationEmail } from "@/lib/email"
 import { isLocale } from "@/lib/i18n/locales"
 import {
+  getClientIp,
   isRateLimitedRequest,
   rateLimitJsonResponse,
 } from "@/lib/rate-limit"
+import { createSignupTicket } from "@/lib/signup-ticket"
+import { verifyTurnstileToken } from "@/lib/turnstile"
 
 export const dynamic = "force-dynamic"
 
@@ -22,7 +25,12 @@ export async function POST(request: Request) {
     return rateLimitJsonResponse()
   }
 
-  let body: { name?: string; email?: string; password?: string }
+  let body: {
+    name?: string
+    email?: string
+    password?: string
+    captchaToken?: string
+  }
   try {
     body = await request.json()
   } catch {
@@ -50,6 +58,22 @@ export async function POST(request: Request) {
   }
   if (password.length < 8) {
     return NextResponse.json({ error: "password_short" }, { status: 400 })
+  }
+
+  // Cloudflare Turnstile: el cliente manda un token de un solo uso por intento.
+  // Se valida antes de hashear la contraseña (bcrypt es caro) y antes de
+  // tocar la BD, para no gastar CPU ni filas con peticiones de bot.
+  const captcha = await verifyTurnstileToken({
+    token: body.captchaToken,
+    remoteIp: getClientIp(request),
+  })
+  if (!captcha.ok) {
+    // Falta de configuración en el servidor: no es culpa de quien se registra,
+    // así que 500 y sin filtrar el motivo al cliente.
+    if (captcha.reason === "not_configured") {
+      return NextResponse.json({ error: "unknown" }, { status: 500 })
+    }
+    return NextResponse.json({ error: "captcha_failed" }, { status: 400 })
   }
 
   const passwordHash = await bcrypt.hash(password, 10)
@@ -103,5 +127,11 @@ export async function POST(request: Request) {
     })
   }
 
-  return NextResponse.json({ ok: true, verified, id: userId })
+  return NextResponse.json({
+    ok: true,
+    verified,
+    id: userId,
+    // Exime del captcha del auto-login inmediato (ver src/lib/signup-ticket.ts).
+    signupTicket: createSignupTicket(email),
+  })
 }

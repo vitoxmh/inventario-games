@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Search } from "lucide-react"
+import { Ban, ChevronLeft, ChevronRight, Search, ShieldCheck, ShieldOff, UserCheck } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -244,6 +244,11 @@ export function AdminUsersClient({
                         size="sm"
                         onClick={() => toggleRole(user)}
                       >
+                        {user.role === "admin" ? (
+                          <ShieldOff aria-hidden="true" />
+                        ) : (
+                          <ShieldCheck aria-hidden="true" />
+                        )}
                         {user.role === "admin"
                           ? dict.removeAdmin
                           : dict.makeAdmin}
@@ -254,6 +259,11 @@ export function AdminUsersClient({
                         size="sm"
                         onClick={() => toggleBan(user)}
                       >
+                        {user.bannedAt ? (
+                          <UserCheck aria-hidden="true" />
+                        ) : (
+                          <Ban aria-hidden="true" />
+                        )}
                         {user.bannedAt ? dict.unban : dict.ban}
                       </Button>
                     </div>
@@ -278,6 +288,7 @@ export function AdminUsersClient({
               disabled={isPending || page <= 1}
               onClick={() => load(page - 1, q)}
             >
+              <ChevronLeft aria-hidden="true" />
               {dict.prev}
             </Button>
             <span className="text-sm text-muted-foreground tabular-nums">
@@ -291,6 +302,7 @@ export function AdminUsersClient({
               onClick={() => load(page + 1, q)}
             >
               {dict.next}
+              <ChevronRight aria-hidden="true" />
             </Button>
           </div>
         </div>

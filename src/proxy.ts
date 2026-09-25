@@ -28,17 +28,20 @@ function buildCsp(nonce: string): string {
   const isDev = process.env.NODE_ENV === "development"
   return [
     "default-src 'self'",
+    // Con 'strict-dynamic' el script de Turnstile entra por el nonce que le
+    // pasa <Script>; los hosts quedan como fallback para navegadores sin
+    // soporte de strict-dynamic.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${
       isDev ? " 'unsafe-eval'" : ""
-    }`,
+    } https://challenges.cloudflare.com`,
     // Sin nonce en style-src: si confluyen 'unsafe-inline' + nonce la spec
     // ignora 'unsafe-inline' y bloquea todo estilo inline en runtime (sonner,
     // posicionadores Base UI). El nonce aquí no aporta nada.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self'",
-    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+    "connect-src 'self' https://challenges.cloudflare.com",
+    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

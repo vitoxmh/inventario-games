@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Turnstile } from "@/components/auth/turnstile"
 import type { Dictionary } from "@/messages/es"
 import type { Locale } from "@/lib/i18n/locales"
 
@@ -19,6 +20,8 @@ export function LoginForm({
   invalidToken,
   registered,
   showGoogle = false,
+  turnstileSiteKey,
+  nonce,
 }: {
   dict: AuthDict
   locale: Locale
@@ -27,11 +30,24 @@ export function LoginForm({
   invalidToken: boolean
   registered: boolean
   showGoogle?: boolean
+  /** Sin site key no se pinta el widget y el login va sin captcha. */
+  turnstileSiteKey?: string
+  /** Nonce de la CSP para el <Script> de Turnstile (lo inyecta src/proxy.ts). */
+  nonce?: string
 }) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [resendNotice, setResendNotice] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [captchaToken, setCaptchaToken] = useState("")
+  const [captchaReset, setCaptchaReset] = useState(0)
+
+  // El token de Turnstile es de un solo uso: en cuanto se manda hay que
+  // resetear el widget para el siguiente intento.
+  function consumeCaptcha() {
+    setCaptchaToken("")
+    setCaptchaReset((value) => value + 1)
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -49,14 +65,22 @@ export function LoginForm({
       setError(dict.errorWrong)
       return
     }
+    if (turnstileSiteKey && !captchaToken) {
+      setError(dict.captchaFailed)
+      return
+    }
 
     startTransition(async () => {
       const result = await signIn("credentials", {
         email,
         password,
+        captchaToken: captchaToken || undefined,
         redirect: false,
       })
       if (result?.error) {
+        // No se distingue "captcha falló" de "credenciales incorrectas": el
+        // servidor devuelve el mismo error en ambos casos a propósito.
+        consumeCaptcha()
         setError(dict.errorWrong)
         return
       }
@@ -75,16 +99,28 @@ export function LoginForm({
       setError(dict.invalidEmail)
       return
     }
+    if (turnstileSiteKey && !captchaToken) {
+      setError(dict.captchaFailed)
+      return
+    }
     setError(null)
     setResendNotice(false)
     startTransition(async () => {
       const res = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, locale }),
+        body: JSON.stringify({
+          email,
+          locale,
+          captchaToken: captchaToken || undefined,
+        }),
       })
+      const data = await res.json().catch(() => null)
+      consumeCaptcha()
       if (!res.ok) {
-        setError(dict.genericError)
+        setError(
+          data?.error === "captcha_failed" ? dict.captchaFailed : dict.genericError,
+        )
         return
       }
       setResendNotice(true)
@@ -123,6 +159,19 @@ export function LoginForm({
             autoComplete="current-password"
           />
         </div>
+        {turnstileSiteKey && (
+          <Turnstile
+            siteKey={turnstileSiteKey}
+            action="login"
+            nonce={nonce}
+            onToken={setCaptchaToken}
+            onUnavailable={() => {
+              setCaptchaToken("")
+              setError(dict.captchaFailed)
+            }}
+            resetSignal={captchaReset}
+          />
+        )}
         <Button type="submit" size="lg" className="w-full" disabled={pending}>
           {pending ? dict.loading : dict.submitLogin}
         </Button>

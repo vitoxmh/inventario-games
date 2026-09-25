@@ -103,6 +103,18 @@ export const es = {
     subtitle: "Crea tu cuenta gratis en menos de un minuto.",
     button: "Empezar ahora",
   },
+  seo: {
+    homeTitle:
+      "VMVault · Inventario de colección de videojuegos con fotos y valoración",
+    homeDescription:
+      "Inventario SaaS para coleccionistas de videojuegos: sube cada ejemplar con fotos y metadatos, precarga títulos del catálogo RAWG, valora tu colección y expórtala a CSV. Plan gratuito.",
+    homeOgAlt:
+      "VMVault, el inventario en la nube para coleccionistas de videojuegos",
+    pricingTitle: "Precios de VMVault · Plan gratuito, Pro y Collector",
+    pricingDescription:
+      "Planes de VMVault desde $0: hasta 25 juegos gratis, ilimitados en Collector, fotos por juego, valoración de la colección y exportación a CSV.",
+    pricingOgAlt: "Planes y precios de VMVault",
+  },
   footer: {
     rights: "Todos los derechos reservados.",
     madeWith: "Hecho para coleccionistas",
@@ -398,6 +410,8 @@ export const es = {
     emailInUse: "Ese correo ya está registrado.",
     passwordShort: "La contraseña debe tener al menos 8 caracteres.",
     invalidEmail: "Correo electrónico inválido.",
+    captchaFailed:
+      "No hemos podido verificar que eres una persona. Revisa que no estés bloqueando scripts de terceros e inténtalo de nuevo.",
     genericError: "Algo salió mal. Inténtalo de nuevo.",
     joining: "Únete gratis",
   },

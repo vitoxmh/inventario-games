@@ -104,6 +104,18 @@ export const en: Dictionary = {
     subtitle: "Create your free account in under a minute.",
     button: "Get started",
   },
+  seo: {
+    homeTitle:
+      "VMVault · Video game collection inventory with photos and valuation",
+    homeDescription:
+      "Inventory SaaS for video game collectors: upload every copy with photos and metadata, preload titles from the RAWG catalog, value your collection and export it to CSV. Free plan available.",
+    homeOgAlt:
+      "VMVault, the cloud inventory for video game collectors",
+    pricingTitle: "VMVault pricing · Free, Pro and Collector plans",
+    pricingDescription:
+      "VMVault plans from $0: up to 25 games for free, unlimited on Collector, photos per game, collection valuation and CSV export.",
+    pricingOgAlt: "VMVault plans and pricing",
+  },
   footer: {
     rights: "All rights reserved.",
     madeWith: "Made for collectors",
@@ -399,6 +411,8 @@ export const en: Dictionary = {
     emailInUse: "That email is already registered.",
     passwordShort: "Password must be at least 8 characters.",
     invalidEmail: "Invalid email address.",
+    captchaFailed:
+      "We couldn't verify that you're human. Make sure you're not blocking third-party scripts and try again.",
     genericError: "Something went wrong. Try again.",
     joining: "Join for free",
   },

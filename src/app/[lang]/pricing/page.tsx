@@ -4,11 +4,32 @@ import { PricingCards, buildPricingCards } from "@/components/site/pricing-cards
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
 import { listPlans } from "@/lib/plans"
+import { buildAlternates, OG_LOCALE } from "@/lib/seo"
 
 export const dynamic = "force-dynamic"
 
-export const metadata: Metadata = {
-  title: "Pricing",
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary()
+  const currentLocale = await lang()
+  const locale = isLocale(currentLocale) ? currentLocale : "es"
+
+  return {
+    // El title ya incluye la marca, así que no se le aplica el template.
+    title: { absolute: dict.seo.pricingTitle },
+    description: dict.seo.pricingDescription,
+    alternates: buildAlternates(locale, "/pricing"),
+    openGraph: {
+      title: dict.seo.pricingTitle,
+      description: dict.seo.pricingDescription,
+      url: `/${locale}/pricing`,
+      locale: OG_LOCALE[locale],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: dict.seo.pricingTitle,
+      description: dict.seo.pricingDescription,
+    },
+  }
 }
 
 export default async function PricingPage() {

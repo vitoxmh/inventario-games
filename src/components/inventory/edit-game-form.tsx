@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useRef, useState, useTransition } from "react"
-import { ArrowLeft, CloudUpload, ImageUp, Plus, Save, Star, Trash2 } from "lucide-react"
+import { ArrowLeft, CloudUpload, ImageUp, Plus, Save, Star, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "cn"
 import { Button } from "@/components/ui/button"
@@ -635,6 +635,7 @@ export function EditGameForm({
             onClick={() => router.push(detailHref)}
             disabled={pending}
           >
+            <X aria-hidden="true" />
             {dict.cancel}
           </Button>
         </div>

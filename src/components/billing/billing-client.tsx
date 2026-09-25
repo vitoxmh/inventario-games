@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CreditCard } from "lucide-react"
+import { CreditCard, Settings, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -202,6 +202,7 @@ export function BillingClient({
               disabled={busy !== null}
               onClick={() => void submit("manage")}
             >
+              <Settings aria-hidden="true" />
               {busy === "manage"
                 ? dict.processing
                 : dict.manageSubscription}
@@ -279,9 +280,14 @@ export function BillingClient({
                         disabled={busy !== null}
                         onClick={() => void submit("checkout", p)}
                       >
-                        {p === plan
-                          ? dict.subscribe
-                          : `${dict.upgrade} ${dict[PLAN_PRICES[p].name]}`}
+                        {p === plan ? (
+                          dict.subscribe
+                        ) : (
+                          <>
+                            <Sparkles aria-hidden="true" />
+                            {dict.upgrade} {dict[PLAN_PRICES[p].name]}
+                          </>
+                        )}
                         {busy === "checkout" && (
                           <span className="ml-2">{dict.processing}</span>
                         )}

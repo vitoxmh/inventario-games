@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { lang } from "next/root-params"
+import { Sparkles, Tags } from "lucide-react"
 import { Logo } from "@/components/site/logo"
 import { LocaleSwitcher } from "@/components/site/locale-switcher"
 import { AuthNav } from "@/components/site/auth-nav"
@@ -22,14 +23,16 @@ export async function SiteHeader() {
         <nav className="hidden items-center gap-2 md:flex">
           <Link
             href={`/${locale}#features`}
-            className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
+            <Sparkles className="size-4" aria-hidden="true" />
             {dict.nav.features}
           </Link>
           <Link
             href={`/${locale}/pricing`}
-            className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
+            <Tags className="size-4" aria-hidden="true" />
             {dict.nav.pricing}
           </Link>
         </nav>
