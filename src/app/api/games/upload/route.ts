@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { put } from "@vercel/blob"
+import sharp from "sharp"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
 import { getImageLimit } from "@/lib/plans"
@@ -11,12 +12,10 @@ import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 export const dynamic = "force-dynamic"
 
 const MAX_SIZE = 2 * 1024 * 1024
+const MAX_WIDTH = 1200
+const WEBP_QUALITY = 82
 
-const MIME_EXT: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-}
+const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"])
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -56,16 +55,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing_file" }, { status: 400 })
   }
 
-  const ext = MIME_EXT[file.type]
-  if (!ext) {
+  const allowed = ALLOWED_MIME.has(file.type)
+  if (!allowed) {
     return NextResponse.json({ error: "invalid_type" }, { status: 400 })
   }
   if (file.size > MAX_SIZE) {
     return NextResponse.json({ error: "file_too_large" }, { status: 413 })
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer())
-  const filename = `${randomBytes(16).toString("hex")}.${ext}`
+  let buffer: Buffer
+  try {
+    buffer = await sharp(Buffer.from(await file.arrayBuffer()))
+      .rotate()
+      .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer()
+  } catch {
+    return NextResponse.json({ error: "invalid_type" }, { status: 400 })
+  }
+
+  const filename = `${randomBytes(16).toString("hex")}.webp`
 
   // Producción: el filesystem de Vercel es efímero y `public/` es inmutable en
   // runtime, así que las imágenes van a Vercel Blob (URL absoluta https).
