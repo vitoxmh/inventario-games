@@ -2,7 +2,7 @@
 --
 -- MP no deja LISTAR los pagos de un usuario: `GET /v1/orders/search` responde 400
 -- con el token que tenemos y la URL de retorno no trae el `order_id`. La unica
--- forma de volver a una order es remembering su id, asi que se guarda aqui.
+-- forma de volver a una order es recordar su id, asi que se guarda aqui.
 -- Sin esta tabla, un pago que el webhook no llego a resolver es irrecuperable.
 --
 -- `order_id` es el id que devuelve MP (`ORD...`) y es unico: si MP devolviera un id
