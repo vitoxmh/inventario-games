@@ -90,6 +90,13 @@ async function handleOrder(dataId: string) {
   // nuestro: sin él (o con un plan fuera de la escalera) no es una order nuestra.
   const reference = parseMpExternalReference(order.external_reference)
   if (!reference || !isPaidPlanSlug(reference.plan)) {
+    // Silencioso para quien llama, pero no mudo: si la referencia no vuelve
+    // intacta, el plan no se concede nunca y sin esta línea no hay forma de
+    // distinguirlo de "el webhook no llegó".
+    console.error(
+      `[mp:webhook] order ${dataId} con external_reference inesperado:`,
+      order.external_reference,
+    )
     return NextResponse.json({ received: true })
   }
 
@@ -137,6 +144,10 @@ async function handleOrder(dataId: string) {
   }
 
   // `pending` o `unknown`: no se toca nada. Un pago en revisión puede acabar
-  // acreditándose, y degradar aquí dejaría al usuario sin lo que pagó.
+  // acreditándose, y degradar aquí dejaría al usuario sin lo que pagó. Se
+  // registra el desenlace porque desde fuera es indistinguible de "no llegó".
+  console.error(
+    `[mp:webhook] order ${dataId} sin conceder plan: estado "${outcome}"`,
+  )
   return NextResponse.json({ received: true })
 }

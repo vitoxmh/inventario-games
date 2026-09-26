@@ -393,6 +393,15 @@ export function verifyMpSignature(
    * ids de order van en mayúsculas). Se prueban las dos grafías: ambas están
    * firmadas con el mismo secreto, así que aceptar las dos no abre nada, y evita
    * que el webhook se quede mudo entero en producción por un detalle de caja.
+   *
+   * `toleranceSeconds` NO se le pasa al SDK: su comprobación de caducidad
+   * multiplica el `ts` por 1000 asumiendo que viene en SEGUNDOS, cuando MP lo
+   * manda en MILISEGUNDOS (`ts=1742505638683`). Con el valor correcto eso
+   * multiplica la marca de tiempo por mil, la deriva sale siempre enorme y
+   * TODA notificación real se rechaza con `TimestampOutOfTolerance` — el webhook
+   * devolvía 401 y el plan no se concedía nunca. La ventana se aplica abajo, en
+   * milisegundos, que es la unidad real; el HMAC y la comparación en tiempo
+   * constante siguen siendo los del SDK.
    */
   let reason: string | null = null
   for (const candidate of [dataId.toLowerCase(), dataId]) {
@@ -402,8 +411,11 @@ export function verifyMpSignature(
         xRequestId,
         dataId: candidate,
         secret,
-        toleranceSeconds: SIGNATURE_TOLERANCE_SECONDS,
       })
+      if (!isFreshMpTimestamp(xSignature)) {
+        reason = "stale"
+        continue
+      }
       return true
     } catch (error) {
       if (!(error instanceof InvalidWebhookSignatureError)) throw error
@@ -414,6 +426,31 @@ export function verifyMpSignature(
   // El motivo vive en el enum del SDK: es diagnóstico, nunca respuesta.
   console.error("mercadopago: firma de webhook rechazada:", reason)
   return false
+}
+
+/** La ventana de `SIGNATURE_TOLERANCE_SECONDS`, en la unidad del `ts` de MP. */
+const SIGNATURE_TOLERANCE_MS = SIGNATURE_TOLERANCE_SECONDS * 1000
+
+/**
+ * Ventana de frescura de la notificación, calculada aquí porque el chequeo del
+ * SDK usa la unidad equivocada: el `ts` de `x-signature` va en MILISEGUNDOS
+ * (epoch), así que se compara directamente contra `Date.now()`.
+ *
+ * Que una notificación sea antigua no la vuelve ni más ni menos AUTÉNTICA: el
+ * HMAC ya está comprobado con el secreto de MP, de modo que un reenvío antiguo
+ * solo puede repetir un evento que ya conhecemos. Y aunque pasara, los handlers
+ * son idempotentes y reconsultan el estado real a la API de MP, así que repetir
+ * converge al mismo estado. La ventana es de higiene, no un control de
+ * seguridad.
+ */
+function isFreshMpTimestamp(xSignature: string): boolean {
+  const match = /(?:^|,)\s*ts=(\d+)/.exec(xSignature)
+  if (!match) return false
+  const ts = Number(match[1])
+  if (!Number.isFinite(ts)) return false
+  // Un `ts` en segundos (13 dígitos nos dan ~año 33658) se trata como ms.
+  const tsMs = ts < 1e12 ? ts * 1000 : ts
+  return Math.abs(Date.now() - tsMs) <= SIGNATURE_TOLERANCE_MS
 }
 
 /**
