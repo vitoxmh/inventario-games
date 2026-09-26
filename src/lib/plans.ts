@@ -1,4 +1,5 @@
 import "server-only"
+import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
 import type { Dictionary } from "@/messages/es"
 
@@ -85,4 +86,26 @@ export async function isPaidPlan(slug: string): Promise<boolean> {
     select: { paid: true },
   })
   return plan?.paid ?? false
+}
+
+/**
+ * Plan de quien está viendo la página, o `null` si no hay sesión.
+ *
+ * Se relee de la fila y no del claim `session.user.plan`: el token es una caché
+ * (lo refresca el callback `jwt`) y lo que pintamos es "qué plan tienes". Sin
+ * sesión no se toca la BD, así que una visita anónima a una página pública no
+ * paga la consulta.
+ *
+ * Lo usan las páginas que comparten tarjetas de plan con un destino distinto
+ * según haya o no cuenta (ahora la de precios): sin esto, un suscriptor ve
+ * "Elegir plan" sobre el plan que ya está pagando.
+ */
+export async function getViewerPlan(): Promise<string | null> {
+  const session = await auth()
+  if (!session?.user?.id) return null
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { plan: true },
+  })
+  return user?.plan ?? null
 }

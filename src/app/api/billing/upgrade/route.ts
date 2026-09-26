@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { activeProviderFor, isPaidPlanSlug, isUpgrade } from "@/lib/billing"
+import {
+  activeProviderFor,
+  billingReturnUrl,
+  isPaidPlanSlug,
+  isUpgrade,
+} from "@/lib/billing"
 import { isProviderConfigured } from "@/lib/providers"
 import { upgradePlan, BillingError } from "@/lib/payments"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
@@ -101,15 +106,14 @@ export async function POST(request: Request) {
     )
   }
 
-  const url = new URL(request.url)
-  const origin = `${url.protocol}//${url.host}`
-
   try {
     const result = await upgradePlan({
       provider,
       user,
       plan,
-      billingUrl: `${origin}/${locale}/app/billing`,
+      // La vuelta la decide el servidor (URL pública configurada), no el `Host`
+      // que envíe el cliente: ver `billingReturnUrl`.
+      billingUrl: billingReturnUrl(locale, request.url),
     })
 
     // Solo se escribe lo que el proveedor ha confirmado: con Stripe, el plan y el

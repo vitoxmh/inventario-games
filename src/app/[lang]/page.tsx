@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator"
 import { PricingCards, buildPricingCards } from "@/components/site/pricing-cards"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
-import { listPlans, type PlanRow } from "@/lib/plans"
+import { getViewerPlan, listPlans, type PlanRow } from "@/lib/plans"
 import { planPriceCents } from "@/lib/billing"
 import { absoluteUrl, buildAlternates, OG_LOCALE, safeJsonLd } from "@/lib/seo"
 import type { Metadata } from "next"
@@ -125,8 +125,16 @@ export default async function HomePage() {
   const currentLocale = await lang()
   const localePrefix = `/${currentLocale}`
   const locale = isLocale(currentLocale) ? currentLocale : "es"
-  const plans = await listPlans({ activeOnly: true })
-  const cards = buildPricingCards({ plans, pricing: dict.pricing, locale })
+  const [currentPlan, plans] = await Promise.all([
+    getViewerPlan(),
+    listPlans({ activeOnly: true }),
+  ])
+  const cards = buildPricingCards({
+    plans,
+    pricing: dict.pricing,
+    locale,
+    currentPlan,
+  })
   const jsonLd = buildJsonLd({
     name: dict.site.name,
     description: dict.seo.homeDescription,
@@ -220,9 +228,10 @@ export default async function HomePage() {
           <PricingCards
             pricing={dict.pricing}
             cards={cards}
-            href={(name) =>
-              `${localePrefix}/signup?plan=${encodeURIComponent(name.toLowerCase())}`
-            }
+            paths={{
+              signup: `${localePrefix}/signup`,
+              billing: `${localePrefix}/app/billing`,
+            }}
           />
         </section>
       )}

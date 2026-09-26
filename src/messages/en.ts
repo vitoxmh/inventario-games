@@ -63,6 +63,8 @@ export const en: Dictionary = {
     monthly: "/mo",
     popular: "Most popular",
     cta: "Choose plan",
+    yourPlan: "Your plan",
+    managePlan: "Manage plan",
     unavailable: "Coming soon",
     priceFree: "$0",
     games: "games",
@@ -258,7 +260,7 @@ export const en: Dictionary = {
     processing: "Redirecting to checkout…",
     stripeNotConfigured: "Payments are not available yet. Check back later.",
     successBanner:
-      "Subscription activated! Your new plan is now live.",
+      "Payment received. We're activating your plan: it will show up here as soon as the provider confirms it.",
     canceledBanner:
       "No changes were made. Your plan stays the same.",
     loginToSubscribe: "Sign in to subscribe.",
@@ -272,6 +274,8 @@ export const en: Dictionary = {
       "You have no active subscription to upgrade. Subscribe first.",
     cardError: "Your bank declined the payment. Try another card.",
     planUnavailable: "That plan is not available right now.",
+    mpPeriodActive:
+      "You already have a paid period running. It renews when it ends, there's no need to buy it again.",
     upgradeFailed: "We couldn't complete the plan change. Please try again.",
   },
   admin: {

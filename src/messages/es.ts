@@ -62,6 +62,8 @@ export const es = {
     monthly: "/mes",
     popular: "Más popular",
     cta: "Elegir plan",
+    yourPlan: "Tu plan",
+    managePlan: "Gestionar plan",
     unavailable: "Disponible pronto",
     priceFree: "$0",
     games: "juegos",
@@ -257,7 +259,7 @@ export const es = {
     processing: "Redirigiendo al pago…",
     stripeNotConfigured: "El pago aún no está disponible. Vuelve más tarde.",
     successBanner:
-      "¡Suscripción activada! Tu nuevo plan ya está en marcha.",
+      "Pago recibido. Estamos activando tu plan: en cuanto el proveedor lo confirme aparecerá aquí.",
     canceledBanner:
       "No se realizó ningún cambio. Tu plan sigue igual.",
     loginToSubscribe: "Inicia sesión para suscribirte.",
@@ -271,6 +273,8 @@ export const es = {
       "No tienes una suscripción activa que mejorar. Suscríbete primero.",
     cardError: "Tu banco rechazó el pago. Prueba con otra tarjeta.",
     planUnavailable: "Ese plan no está disponible ahora mismo.",
+    mpPeriodActive:
+      "Ya tienes un periodo de pago vigente. Se renueva cuando termine, no hace falta comprarlo otra vez.",
     upgradeFailed: "No se pudo completar el cambio de plan. Inténtalo de nuevo.",
   },
   admin: {

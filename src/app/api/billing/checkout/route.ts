@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { isPaidPlanSlug } from "@/lib/billing"
+import { billingReturnUrl, isPaidPlanSlug } from "@/lib/billing"
 import { getAvailableProviders } from "@/lib/payment-providers"
 import { isProvider } from "@/lib/providers"
 import { checkoutUrl, BillingError } from "@/lib/payments"
@@ -54,13 +54,12 @@ export async function POST(request: Request) {
   }
 
   const locale = body.locale === "en" ? "en" : "es"
-  const url = new URL(request.url)
-  const origin = `${url.protocol}//${url.host}`
 
   // A dónde vuelve el usuario desde el checkout del proveedor. En MP es la
   // misma URL para aprobado, rechazado y pendiente: de ella solo se saca el
-  // mensaje, el estado real se repregunta a la API de MP.
-  const billingUrl = `${origin}/${locale}/app/billing`
+  // mensaje, el estado real se repregunta a la API de MP. La URL la decide el
+  // servidor (URL pública configurada), no el `Host` que envíe el cliente.
+  const billingUrl = billingReturnUrl(locale, request.url)
 
   // El `userId` sale de la sesión, nunca del body: el plan se compra para quien
   // está autenticado.
@@ -93,11 +92,17 @@ export async function POST(request: Request) {
     // customer de Stripe. Con MP no se escribe nada: la order aún no está pagada
     // y su estado lo reconcilia el webhook `order` (que a su vez repregunta a la
     // API de MP). Los query params de la return URL solo pintan el mensaje.
-    if (typeof result.stripeCustomerId === "string") {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { stripeCustomerId: result.stripeCustomerId },
-      })
+    //
+    // `sync` es lo contrario: cuando el proveedor sí tiene una suscripción viva
+    // pero nuestra fila aún no lo sabe (porque el webhook no ha llegado), aquí se
+    // corrige la fila con la verdad de Stripe. Así el plan no depende en exclusiva
+    // del webhook para dejar de ofrecer una compra duplicada.
+    const data: Record<string, unknown> = {}
+    if (typeof result.stripeCustomerId === "string")
+      data.stripeCustomerId = result.stripeCustomerId
+    if (result.sync) Object.assign(data, result.sync)
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({ where: { id: user.id }, data })
     }
 
     return NextResponse.json({ url: result.url })

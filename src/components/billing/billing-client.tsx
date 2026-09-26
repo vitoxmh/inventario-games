@@ -66,6 +66,7 @@ type BillingDict = {
     | "noActiveSubscription"
     | "cardError"
     | "planUnavailable"
+    | "mpPeriodActive"
     | "upgradeFailed"]:string
 }
 
@@ -105,6 +106,7 @@ const ERROR_LABEL_KEYS: Record<string, keyof BillingDict> = {
   no_active_subscription: "noActiveSubscription",
   card_error: "cardError",
   plan_unavailable: "planUnavailable",
+  mp_period_active: "mpPeriodActive",
   subscription_not_updatable: "upgradeFailed",
 }
 

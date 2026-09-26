@@ -70,6 +70,39 @@ export type PlanMeta = {
   priceEnvKey: "STRIPE_PRICE_PRO" | "STRIPE_PRICE_COLLECTOR" | null
 }
 
+/**
+ * A dónde vuelve el usuario tras pagar: se la mandamos a los proveedores como
+ * `return_url`/`back_url` y es la que Stripe guarda en la sesión del portal.
+ *
+ * NUNCA se construye con el origen de la petición. `${url.protocol}//${url.host}`
+ * sale de la cabecera `Host` del cliente, que es falsificable: quien controle su
+ * `Host` lograría que el proveedor devolviera al comprador a un sitio suyo, y en
+ * local es lo que hace que un `return_url` acabe en `localhost:3100` mientras la
+ * app se sirve en otro puerto. Se usa la URL pública configurada (la misma
+ * `SITE_URL`/`NEXT_PUBLIC_APP_URL` de la que salen canonical, OG y sitemap) y,
+ * solo si no hay ninguna, se cae al host de la petición: en desarrollo no hay
+ * otra cosa a la que apelar.
+ *
+ * El locale va contra una allowlist de dos valores en el llamante y la ruta es
+ * una constante del repo, así que la URL resultante siempre es interna: no hay
+ * open redirect por aquí.
+ */
+export function billingReturnUrl(
+  locale: "es" | "en",
+  requestUrl: string,
+): string {
+  const configured = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL
+  let base: string
+  try {
+    // `.origin` de una URL con ruta la deja limpia a propósito: el prefijo de
+    // path se ignora igual que en `absoluteUrl`.
+    base = configured ? new URL(configured).origin : new URL(requestUrl).origin
+  } catch {
+    base = new URL(requestUrl).origin
+  }
+  return `${base}/${locale}/app/billing`
+}
+
 /*
  * Los precios se declaran en céntimos (USD) para evitar errores de coma
  * flotante, y van en la MISMA posición que la escalera: el plan intermedio es

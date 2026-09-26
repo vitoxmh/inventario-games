@@ -1,4 +1,5 @@
 import "server-only"
+import type Stripe from "stripe"
 import {
   mapStripeStatus,
   stripe,
@@ -6,6 +7,7 @@ import {
 } from "@/lib/stripe"
 import { priceIdForPlan, planFromPriceId, type PaidPlan } from "@/lib/billing"
 import {
+  MP_BILLING_PERIOD_DAYS,
   createMpCheckoutOrder,
   isMpConfigured,
   mpAmountForPlan,
@@ -27,10 +29,24 @@ export type BillingUser = {
 
 export type Provider = "stripe" | "mp"
 
+/**
+ * Estado autoritativo de la suscripción según el proveedor, para que la ruta
+ * pueda sincronizar la fila local cuando esta esté desfasada. Los campos que no
+ * se pueden derivar se omiten: `plan` es obligatorio en la BD y mandarlo a null
+ * reventaría el update.
+ */
+export type BillingSync = {
+  plan?: PaidPlan
+  subscriptionStatus?: StripeSubscriptionStatus
+  stripeSubscriptionId?: string | null
+}
+
 export type CheckoutResult = {
   url: string
   kind: "checkout" | "portal"
   stripeCustomerId?: string
+  /** Verdad del proveedor para arreglar la fila local; la aplica la ruta. */
+  sync?: BillingSync
 }
 
 /*
@@ -68,6 +84,51 @@ function stripeErrorType(error: unknown): string | null {
   return typeof type === "string" ? type : null
 }
 
+/**
+ * Estados en los que la suscripción sigue viva y ocupando plaza. `past_due` y
+ * `unpaid` cuentan: la suscripción existe y se sigue cobrando, así que vender
+ * otra sería duplicar el cargo aunque el cobro esté fallando.
+ */
+const LIVE_SUB_STATUSES = new Set([
+  "active",
+  "trialing",
+  "past_due",
+  "unpaid",
+  "incomplete",
+])
+
+/**
+ * Suscripción viva del cliente en Stripe, o `null` si no tiene ninguna. Si la
+ * API falla, el error sube: se prefiere no abrir un checkout antes que arriesgar
+ * un segundo cargo (fail-closed en dinero).
+ */
+async function liveStripeSubscription(
+  customerId: string,
+): Promise<Stripe.Subscription | null> {
+  const list = await stripe!.subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 10,
+  })
+  return list.data.find((s) => LIVE_SUB_STATUSES.has(s.status)) ?? null
+}
+
+/**
+ * Verdad de la suscripción según Stripe, para sincronizar la fila local. El
+ * plan sale del price id real (nunca del cliente) y los campos que no se pueden
+ * derivar se omiten en vez de mandarse a null, porque `plan` no admite null.
+ */
+function syncFromStripeSub(sub: Stripe.Subscription): BillingSync {
+  const priceId = sub.items?.data?.[0]?.price?.id
+  const plan = priceId ? planFromPriceId(priceId) : null
+  const status = mapStripeStatus(sub.status)
+  return {
+    ...(plan ? { plan } : {}),
+    ...(status ? { subscriptionStatus: status } : {}),
+    stripeSubscriptionId: sub.id,
+  }
+}
+
 async function stripeCheckoutUrl(args: {
   user: BillingUser
   plan: PaidPlan
@@ -78,21 +139,6 @@ async function stripeCheckoutUrl(args: {
   if (!priceId) throw new BillingError("plan_unavailable", 503)
   if (!stripe) throw new BillingError("stripe_not_configured", 503)
 
-  // Suscripción activa: se gestiona desde el portal para no duplicarla
-  // (upgrade/downgrade/cancel se hacen ahí).
-  if (
-    args.user.stripeSubscriptionId &&
-    args.user.subscriptionStatus === "ACTIVE"
-  ) {
-    if (!args.user.stripeCustomerId) throw new BillingError("unknown", 500)
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: args.user.stripeCustomerId,
-      return_url: args.billingUrl,
-    })
-    if (!portal.url) throw new BillingError("unknown", 500)
-    return { url: portal.url, kind: "portal" }
-  }
-
   let customerId = args.user.stripeCustomerId
   if (!customerId) {
     const customer = await stripe.customers.create({
@@ -100,6 +146,32 @@ async function stripeCheckoutUrl(args: {
       metadata: { userId: args.user.id },
     })
     customerId = customer.id
+  }
+
+  /*
+   * Una suscripción viva NO se vuelve a vender: se gestiona desde el portal
+   * (upgrade/downgrade/cancel se hacen ahí).
+   *
+   * La pregunta se le hace a **Stripe**, no a nuestra fila. El guard anterior
+   * miraba `stripeSubscriptionId` + `subscriptionStatus`, y esos dos campos los
+   * escribe únicamente el webhook: si el webhook tarda, está sin registrar o su
+   * URL no es alcanzable, la fila dice FREE, el guard no ve nada y cada clic
+   * vendía el mismo plan otra vez (dos suscripciones COLLECTOR en dos minutos, y
+   * cobrando las dos). Stripe es la fuente de verdad y se consulta en cada
+   * intento.
+   *
+   * Si la fila local no cuadra con lo que dice Stripe, se devuelve `sync` para
+   * que la ruta la arregle: así el guard no depende de que el webhook llegue y,
+   * de paso, la app se autoconcilla en el siguiente intento de pago.
+   */
+  const live = await liveStripeSubscription(customerId)
+  if (live) {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: args.billingUrl,
+    })
+    if (!portal.url) throw new BillingError("unknown", 500)
+    return { url: portal.url, kind: "portal", sync: syncFromStripeSub(live) }
   }
 
   const checkout = await stripe.checkout.sessions.create({
@@ -149,6 +221,27 @@ async function mpCheckoutUrl(args: {
 
   const amount = mpAmountForPlan(args.plan)
   if (!amount) throw new BillingError("plan_unavailable", 503)
+
+  /*
+   * While the paid period is alive, no new order opens: paying twice in a row
+   * would be paying for two months. It is a soft guard (409), not a redirect to
+   * a portal, because MP has no portal: the user simply renews when the period
+   * runs out.
+   *
+   * Honest limit: `mpLastChargeAt` is written by the `order` webhook, so this
+   * still depends on the webhook being reachable. Unlike Stripe, here the state
+   * cannot be asked authoritatively: `order.search` answers 400 with the token
+   * we hold, so there is no way to list a user's payments without the webhook.
+   * That is also why the success banner says "we are activating" and not
+   * "activated": at that moment we really do not know yet.
+   */
+  const chargedAt = args.user.mpLastChargeAt
+  if (chargedAt) {
+    const periodMs = MP_BILLING_PERIOD_DAYS * 24 * 60 * 60 * 1000
+    if (chargedAt.getTime() + periodMs > Date.now()) {
+      throw new BillingError("mp_period_active", 409)
+    }
+  }
 
   const { orderId, checkoutUrl } = await createMpCheckoutOrder({
     plan: args.plan,

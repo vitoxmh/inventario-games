@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
+import { billingReturnUrl } from "@/lib/billing"
 import { isProvider, isProviderConfigured } from "@/lib/providers"
 import { cancelMpSubscription, portalUrl, BillingError } from "@/lib/payments"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
@@ -49,9 +50,9 @@ export async function POST(request: Request) {
   }
   const provider = body.provider
 
-  const url = new URL(request.url)
-  const origin = `${url.protocol}//${url.host}`
-  const billingUrl = `${origin}/${locale}/app/billing`
+  // La vuelta la decide el servidor (URL pública configurada), no el `Host` que
+  // envíe el cliente: ver `billingReturnUrl`.
+  const billingUrl = billingReturnUrl(locale, request.url)
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
