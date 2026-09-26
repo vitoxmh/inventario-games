@@ -1,0 +1,114 @@
+import { timingSafeEqual } from "node:crypto"
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/db"
+import { MP_BILLING_PERIOD_DAYS } from "@/lib/mp"
+import { isPaidPlanSlug, PAID_PLANS } from "@/lib/billing"
+
+export const dynamic = "force-dynamic"
+
+/*
+ * Barrido diario de periodos vencidos de Mercado Pago.
+ *
+ * En este modelo MP NO agenda cobros y no se guarda tarjeta: cada pago da
+ * `MP_BILLING_PERIOD_DAYS` de acceso y el siguiente ciclo vuelve a pasar por el
+ * checkout. Por eso no hay nada que "renovar" aquí: lo que hay que hacer es
+ * cerrar el periodo de quien ya no lo ha renovado, que es lo único que mantiene
+ * la promesa de "el plan paid es de pago durante 30 días".
+ *
+ * A quién degrada (y a quién NO):
+ *  - Solo filas con `mpLastChargeAt` más antiguo que el periodo. El filtro `lt`
+ *    excluye los `null` a propósito: un usuario de Stripe, o uno que nunca ha
+ *    pagado con MP, tiene esa columna vacía y este endpoint no lo toca jamás.
+ *  - La lista de planes pagados se comprueba además en el bucle (allowlist), por
+ *    si una fila quedara con `mpLastChargeAt` puesto y plan FREE.
+ *  - Al degradar se limpia `mpLastChargeAt`, así que un FREE no vuelve a entrar
+ *    nunca en la consulta.
+ *
+ * Autenticación: es un endpoint sin sesión (lo llama el cron, no un usuario).
+ * Se exige `CRON_SECRET` contra la cabecera `Authorization: Bearer ...`, la
+ * convención de Vercel Cron. Sin `CRON_SECRET` en el entorno el endpoint no
+ * hace nada y responde 503: fail-closed, nunca "abierto porque no había nada
+ * que proteger".
+ *
+ * GET y POST: Vercel Cron dispara una petición GET (documentación de Vercel), y
+ * el POST se deja para dispararlo a mano o desde otro planificador. La regla de
+ * "no mutar en GET" no aplica aquí: la autenticación es un secreto de servidor
+ * en la cabecera, no una cookie de sesión, así que no hay superficie de CSRF, y
+ * la acción está acotada por la ventana de 30 días (es idempotente aunque se
+ * ejecute mil veces).
+ */
+
+function authorized(request: Request): boolean {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return false
+  const header = request.headers.get("authorization")
+  if (!header) return false
+  const expected = Buffer.from(`Bearer ${secret}`)
+  const received = Buffer.from(header)
+  return received.length === expected.length && timingSafeEqual(received, expected)
+}
+
+export async function POST(request: Request) {
+  return runSweep(request)
+}
+
+export async function GET(request: Request) {
+  return runSweep(request)
+}
+
+async function runSweep(request: Request) {
+  if (!process.env.CRON_SECRET) {
+    console.error("[mp:expire] CRON_SECRET no configurado")
+    return NextResponse.json({ error: "not_configured" }, { status: 503 })
+  }
+  if (!authorized(request)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 })
+  }
+
+  const periodMs = MP_BILLING_PERIOD_DAYS * 24 * 60 * 60 * 1000
+  const expiredBefore = new Date(Date.now() - periodMs)
+
+  const candidates = await prisma.user.findMany({
+    where: {
+      plan: { in: [...PAID_PLANS] },
+      mpLastChargeAt: { lt: expiredBefore },
+    },
+    select: { id: true, plan: true, mpLastChargeAt: true },
+    take: 500,
+  })
+
+  const summary = { expired: 0, skipped: 0 }
+
+  for (const user of candidates) {
+    // Allowlist de planes: el filtro de la consulta ya lo acota, pero lo que
+    // decide degradar a FREE es esta comprobación, no una suposición.
+    if (!isPaidPlanSlug(user.plan)) {
+      summary.skipped += 1
+      continue
+    }
+    try {
+      // El `id` sale de la consulta filtrada por `mpLastChargeAt`, no del
+      // cliente: el endpoint no recibe body. Aun así el update va con el `id` de
+      // la fila leída, nunca con uno recibido por parámetro.
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          plan: "FREE",
+          subscriptionStatus: "INACTIVE",
+          mpLastChargeAt: null,
+        },
+      })
+      console.error(
+        `[mp:expire] ${user.id} vuelve a FREE (ultimo cobro ${user.mpLastChargeAt?.toISOString()})`,
+      )
+      summary.expired += 1
+    } catch (error) {
+      // Un fallo de BD no debe tumbar el lote entero: se cuenta y se sigue. El
+      // detalle va a consola, nunca al cliente.
+      console.error(`[mp:expire] fallo al degradar a ${user.id}:`, error)
+      summary.skipped += 1
+    }
+  }
+
+  return NextResponse.json({ ok: true, ...summary })
+}

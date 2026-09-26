@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { lang } from "next/root-params"
 import { redirect } from "next/navigation"
-import { Users, Gamepad2, CreditCard, LayoutGrid, Settings } from "lucide-react"
+import { Users, Gamepad2, CreditCard, LayoutGrid, Settings, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 import { requireAdmin } from "@/lib/guard"
@@ -41,6 +41,11 @@ export default async function AdminLayout({
       href: `/${locale}/admin/plans`,
       label: dict.admin.plans,
       icon: Settings,
+    },
+    {
+      href: `/${locale}/admin/payments`,
+      label: dict.admin.payments,
+      icon: Wallet,
     },
   ]
 

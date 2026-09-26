@@ -16,7 +16,7 @@ import { PricingCards, buildPricingCards } from "@/components/site/pricing-cards
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
 import { listPlans, type PlanRow } from "@/lib/plans"
-import { PLAN_META } from "@/lib/billing"
+import { planPriceCents } from "@/lib/billing"
 import { absoluteUrl, buildAlternates, OG_LOCALE, safeJsonLd } from "@/lib/seo"
 import type { Metadata } from "next"
 
@@ -47,10 +47,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /*
- * Datos estructurados Schema.org. El precio sale de PLAN_META (constante de la
- * app) y no del nombre del plan, que es texto de base de datos editable por un
- * admin: si ese nombre cambiara, el price del marcado dejaría de ser el que se
- * cobra. Los importes van como string con dos decimales ("4.99"), nunca
+ * Datos estructurados Schema.org. El precio sale de `planPriceCents` (constante
+ * de la app) y no del nombre del plan, que es texto de base de datos editable
+ * por un admin: si ese nombre cambiara, el price del marcado dejaría de ser el
+ * que se cobra. Los importes van como string con dos decimales ("4.99"), nunca
  * 4.9900000000000003 por coma flotante.
  */
 function buildJsonLd(args: {
@@ -61,7 +61,7 @@ function buildJsonLd(args: {
 }): string {
   const { name, description, locale, plans } = args
   const offers = plans.map((plan) => {
-    const cents = PLAN_META[plan.slug]?.priceCents ?? null
+    const cents = planPriceCents(plan.slug)
     return {
       "@type": "Offer",
       name: plan.slug,

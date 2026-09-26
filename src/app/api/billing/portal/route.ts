@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { getEnabledProviders, type Provider } from "@/lib/billing"
-import { portalUrl, BillingError } from "@/lib/payments"
+import { isProvider, isProviderConfigured } from "@/lib/providers"
+import { cancelMpSubscription, portalUrl, BillingError } from "@/lib/payments"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
+/*
+ * POST /api/billing/portal — autogestión de la suscripción, por proveedor:
+ *  - Stripe: devuelve la URL de su portal de cliente.
+ *  - MP: no hay portal ni tarjeta guardada, así que "gestionar" es cancelar. No
+ *    hay nada que cancelar en MP (nadie cobra solo) y el plan vuelve a FREE.
+ *
+ * El interruptor del admin no se mira: apagar un medio de pago no debe dejar a
+ * quien ya paga sin poder cancelar ni actualizar su tarjeta. Solo se exige que
+ * el proveedor siga configurado.
+ */
 export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -30,14 +40,14 @@ export async function POST(request: Request) {
     body = {}
   }
   const locale = body.locale === "en" ? "en" : "es"
-  const provider = String(body.provider ?? "") as Provider
 
-  if (!getEnabledProviders().includes(provider)) {
+  if (!isProvider(body.provider) || !isProviderConfigured(body.provider)) {
     return NextResponse.json(
       { error: "provider_not_available" },
       { status: 503 },
     )
   }
+  const provider = body.provider
 
   const url = new URL(request.url)
   const origin = `${url.protocol}//${url.host}`
@@ -47,11 +57,33 @@ export async function POST(request: Request) {
     where: { id: session.user.id },
     select: { stripeCustomerId: true },
   })
-  if (!user?.stripeCustomerId) {
-    return NextResponse.json({ error: "no_customer" }, { status: 400 })
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
 
   try {
+    if (provider === "mp") {
+      // Cancelar aquí solo significa "no me cobres el mes que viene": MP no tiene
+      // nada que dar de baja porque no se guarda tarjeta ni hay cobro
+      // programado. Se suelta el ancla del periodo para que el panel de admin no
+      // siga mostrando un plan pagado como si lo estuviera. El `userId` sale de
+      // la sesión, nunca del body.
+      cancelMpSubscription()
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          plan: "FREE",
+          subscriptionStatus: "CANCELED",
+          mpLastChargeAt: null,
+        },
+      })
+      return NextResponse.json({ url: billingUrl })
+    }
+
+    if (!user.stripeCustomerId) {
+      return NextResponse.json({ error: "no_customer" }, { status: 400 })
+    }
+
     const portal = await portalUrl({
       provider,
       customerId: user.stripeCustomerId,

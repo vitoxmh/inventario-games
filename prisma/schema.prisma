@@ -18,6 +18,14 @@ enum SubscriptionStatus {
   TRIALING
 }
 
+// Medios de pago de la pasarela. Los valores son los del campo `provider` de
+// `src/lib/billing.ts`: la BD los valida, así que nadie puede inventarse un
+// proveedor ni meter filas basura.
+enum PaymentProvider {
+  stripe
+  mp
+}
+
 enum GameStatus {
   OWNED
   SEALED
@@ -55,6 +63,17 @@ model Platform {
   @@index([slug])
 }
 
+// Interruptor de cada medio de pago, editable desde el admin. Solo guarda el
+// "lo quiere el admin": que el proveedor esté disponible sigue exigiendo sus
+// variables de entorno (ver `src/lib/payment-providers.ts`). Si no hay fila, el
+// proveedor se considera habilitado.
+model PaymentProviderSetting {
+  provider  PaymentProvider @id
+  enabled   Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
 model User {
   id                   String               @id @default(cuid())
   email                String               @unique
@@ -67,15 +86,26 @@ model User {
   plan                 String               @default("FREE")
   stripeCustomerId     String?              @unique
   stripeSubscriptionId String?              @unique
-  mpPreapprovalId      String?              @unique
-  mpPreapprovalPlanId  String?
   subscriptionStatus   SubscriptionStatus?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
+  // Mercado Pago (Checkout Pro sobre Orders API, con redirección). El pago
+  // ocurre en el-hosted checkout de MP y NO guarda tarjeta: no hay customer,
+  // ni payment profile, ni cobros automáticos. Cada ciclo el usuario vuelve a
+  // pagar (ver `src/lib/mp.ts`).
+  //
+  // Inicio del último periodo pagado. Es el ancla del ciclo: el barrido diario
+  // (`/api/mp/expire`) degrada a FREE a quien lo tenga vencido, porque nadie
+  // renueva solo (MP no agenda cobros). Un pago aprobado lo actualiza el webhook
+  // `order`; nunca la vuelta del usuario desde la return URL.
+  mpLastChargeAt DateTime?
+
   games    Game[]
   sessions Session[]
   accounts Account[]
+
+  @@index([mpLastChargeAt])
 }
 
 model Game {

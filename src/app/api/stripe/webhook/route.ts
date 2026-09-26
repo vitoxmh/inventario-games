@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 import type Stripe from "stripe"
 import { prisma } from "@/lib/db"
-import { stripe } from "@/lib/stripe"
+import {
+  mapStripeStatus,
+  stripe,
+  type StripeSubscriptionStatus,
+} from "@/lib/stripe"
 import { planFromPriceId, TIER_RANK } from "@/lib/billing"
 
 export const dynamic = "force-dynamic"
@@ -17,36 +21,10 @@ export const dynamic = "force-dynamic"
  *    esperado.
  *  - En checkout se aplica una "guardia de rango": jamás degrada a un plan
  *    en curso si los eventos llegan reordenados/retry.
+ *  - Tras un upgrade (POST /api/billing/upgrade) el price de la suscripción
+ *    ya viene cambiado: `customer.subscription.updated` es quien consolida el
+ *    plan, sin ninguna lógica especial de "me han subido de nivel".
  */
-
-type StripeStatus =
-  | "ACTIVE"
-  | "INACTIVE"
-  | "PAST_DUE"
-  | "CANCELED"
-  | "TRIALING"
-
-function mapSubscriptionStatus(
-  status: Stripe.Subscription.Status,
-): StripeStatus | null {
-  switch (status) {
-    case "active":
-      return "ACTIVE"
-    case "past_due":
-      return "PAST_DUE"
-    case "canceled":
-    case "unpaid":
-      return "CANCELED"
-    case "trialing":
-      return "TRIALING"
-    case "paused":
-    case "incomplete":
-    case "incomplete_expired":
-      return "INACTIVE"
-    default:
-      return null
-  }
-}
 
 function customerIdOf(
   customer: string | Stripe.Customer | Stripe.DeletedCustomer | null,
@@ -98,7 +76,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   const data: {
     plan: "PRO" | "COLLECTOR"
-    subscriptionStatus: StripeStatus
+    subscriptionStatus: StripeSubscriptionStatus
     stripeSubscriptionId: string | null
     stripeCustomerId?: string
   } = {
@@ -126,7 +104,7 @@ async function handleSubscriptionUpdated(sub: Stripe.Subscription) {
 
   const priceId = sub.items?.data?.[0]?.price?.id
   const plan = priceId ? planFromPriceId(priceId) : null
-  const status = mapSubscriptionStatus(sub.status)
+  const status = mapStripeStatus(sub.status)
 
   if (!status) return
 

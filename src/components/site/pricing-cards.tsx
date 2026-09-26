@@ -10,8 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { PLAN_META } from "@/lib/billing"
-import { planName, type PlanRow, type Locale } from "@/lib/plans"
+import { planPriceCents } from "@/lib/billing"
+import { planFeatures, planName, type PlanRow, type Locale } from "@/lib/plans"
 import type { Dictionary } from "@/messages/es"
 
 export type PricingCard = {
@@ -27,22 +27,15 @@ export function buildPricingCards(args: {
 }): PricingCard[] {
   const { plans, pricing, locale } = args
   return plans.map((plan) => {
-    const priceCents = PLAN_META[plan.slug]?.priceCents ?? null
+    const priceCents = planPriceCents(plan.slug)
     const price =
       priceCents === null
         ? pricing.priceFree
         : `$${(priceCents / 100).toFixed(2)}`
-    const features = [
-      plan.gameLimit === null
-        ? pricing.gamesUnlimited
-        : `${plan.gameLimit} ${pricing.games}`,
-      `${plan.imageLimit} ${pricing.photosPerGame}`,
-      ...(plan.paid ? [pricing.prioritySupport] : []),
-    ]
     return {
       name: planName(plan, locale),
       price,
-      features,
+      features: planFeatures(plan, pricing),
     }
   })
 }

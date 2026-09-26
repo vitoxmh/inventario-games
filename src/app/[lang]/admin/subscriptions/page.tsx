@@ -52,7 +52,7 @@ export default async function AdminSubscriptionsPage() {
         plan: true,
         subscriptionStatus: true,
         stripeSubscriptionId: true,
-        mpPreapprovalId: true,
+        mpLastChargeAt: true,
         updatedAt: true,
       },
     }),
@@ -160,7 +160,7 @@ export default async function AdminSubscriptionsPage() {
                     <TableCell className="text-muted-foreground">
                       {sub.stripeSubscriptionId
                         ? "Stripe"
-                        : sub.mpPreapprovalId
+                        : sub.mpLastChargeAt
                           ? "Mercado Pago"
                           : "—"}
                     </TableCell>

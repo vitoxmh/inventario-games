@@ -1,27 +1,13 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import {
-  getEnabledProviders,
-  type Provider,
-} from "@/lib/billing"
+import { isPaidPlanSlug } from "@/lib/billing"
+import { getAvailableProviders } from "@/lib/payment-providers"
+import { isProvider } from "@/lib/providers"
 import { checkoutUrl, BillingError } from "@/lib/payments"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
-
-const PAID_PLANS = ["PRO", "COLLECTOR"] as const
-
-type BillingUserRow = {
-  id: string
-  email: string
-  plan: string
-  stripeCustomerId: string | null
-  stripeSubscriptionId: string | null
-  subscriptionStatus: string | null
-  mpPreapprovalId: string | null
-  mpPreapprovalPlanId: string | null
-}
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -47,14 +33,20 @@ export async function POST(request: Request) {
   }
 
   const requestedPlan = String(body.plan ?? "").toUpperCase()
-  if (!(PAID_PLANS as readonly string[]).includes(requestedPlan)) {
+  if (!isPaidPlanSlug(requestedPlan)) {
     return NextResponse.json({ error: "invalid_plan" }, { status: 400 })
   }
-  const plan = requestedPlan as (typeof PAID_PLANS)[number]
+  const plan = requestedPlan
 
-  const provider = String(body.provider ?? "") as Provider
-  const enabled = getEnabledProviders()
-  if (!enabled.includes(provider)) {
+  // El proveedor se valida contra la allowlist y además contra el interruptor
+  // del admin: un proveedor apagado (o sin credenciales) no abre checkout, por
+  // mucho que el cliente lo pida.
+  if (!isProvider(body.provider)) {
+    return NextResponse.json({ error: "invalid_provider" }, { status: 400 })
+  }
+  const provider = body.provider
+  const available = await getAvailableProviders()
+  if (!available.includes(provider)) {
     return NextResponse.json(
       { error: "provider_not_available" },
       { status: 503 },
@@ -64,8 +56,14 @@ export async function POST(request: Request) {
   const locale = body.locale === "en" ? "en" : "es"
   const url = new URL(request.url)
   const origin = `${url.protocol}//${url.host}`
+
+  // A dónde vuelve el usuario desde el checkout del proveedor. En MP es la
+  // misma URL para aprobado, rechazado y pendiente: de ella solo se saca el
+  // mensaje, el estado real se repregunta a la API de MP.
   const billingUrl = `${origin}/${locale}/app/billing`
 
+  // El `userId` sale de la sesión, nunca del body: el plan se compra para quien
+  // está autenticado.
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
@@ -75,8 +73,7 @@ export async function POST(request: Request) {
       stripeCustomerId: true,
       stripeSubscriptionId: true,
       subscriptionStatus: true,
-      mpPreapprovalId: true,
-      mpPreapprovalPlanId: true,
+      mpLastChargeAt: true,
     },
   })
   if (!user) {
@@ -86,28 +83,22 @@ export async function POST(request: Request) {
   try {
     const result = await checkoutUrl({
       provider,
-      user: user as BillingUserRow,
+      user,
       plan,
       billingUrl,
       locale,
     })
 
-    const data: { stripeCustomerId?: string } = {}
+    // Lo único que el proveedor ha confirmado y que hay que persistir es el
+    // customer de Stripe. Con MP no se escribe nada: la order aún no está pagada
+    // y su estado lo reconcilia el webhook `order` (que a su vez repregunta a la
+    // API de MP). Los query params de la return URL solo pintan el mensaje.
     if (typeof result.stripeCustomerId === "string") {
-      data.stripeCustomerId = result.stripeCustomerId
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId: result.stripeCustomerId },
+      })
     }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        ...data,
-        // El id de la preapproval se guarda antes de la autorización para
-        // poder resolver el webhook aunque el cliente tarde en pagar.
-        ...(result.pendingPreapprovalId
-          ? { mpPreapprovalId: result.pendingPreapprovalId }
-          : {}),
-      },
-    })
 
     return NextResponse.json({ url: result.url })
   } catch (error) {

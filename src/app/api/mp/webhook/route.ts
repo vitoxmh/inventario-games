@@ -1,45 +1,37 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import {
-  getMpPreapproval,
+  getMpOrder,
+  isValidMpOrderId,
+  mpOrderOutcome,
+  parseMpExternalReference,
   verifyMpSignature,
-  mpPlanFromPreapprovalPlanId,
+  type MpOrder,
 } from "@/lib/mp"
-import { TIER_RANK } from "@/lib/billing"
+import { isPaidPlanSlug, TIER_RANK } from "@/lib/billing"
 
 export const dynamic = "force-dynamic"
 
 /*
- * Webhook de Mercado Pago (tipo `subscription_preapproval`).
- * Seguridad:
+ * Webhook de Mercado Pago para Checkout Pro (Orders API).
+ *
+ * Un solo tópico: `order` (se creó o actualizó una order de pago). No hay
+ * `payment_profile` porque en este modelo no se guarda tarjeta.
+ *
+ * Seguridad (esto es una puerta de escritura, se exige todo):
  *  - Firma HMAC: `x-signature` + `x-request-id` verificados contra
- *    `MP_WEBHOOK_SECRET`. Si no hay secret configurado, el webhook no
- *    procesa nada (el proveedor está "desactivado").
- *  - Cross-check: nunca se confía en el estado del evento; se pregunta a la
- *    API de MP el estado REAL de la preapproval antes de mutar la BD.
- *  - El plan se deriva del `preapproval_plan_id` real contra nuestras vars.
- *  - Guardia de rango en "authorized": jamás degradamos un plan activo.
- *  - Idempotente: repetir el mismo evento converje al mismo estado.
+ *    `MP_WEBHOOK_SECRET` por el `WebhookSignatureValidator` del SDK. Sin secret
+ *    configurado no se procesa nada.
+ *  - Cross-check: el estado NUNCA se toma del evento. Se repregunta a la API de
+ *    MP (`order.get` del SDK, `GET /v1/orders/{id}`) y es esa respuesta la que
+ *    manda, tal como recomienda MP.
+ *  - Identidad (IDOR): la fila se busca por el `userId` que va dentro del
+ *    `external_reference` de la order, un valor que generamos nosotros y que
+ *    pasa por la allowlist de planes.
+ *  - Guardia de rango: un pago de un plan INFERIOR al que ya tiene no degrada.
+ *  - Idempotente: MP reenvía las notificaciones y estas pueden llegar
+ *    desordenadas; repetir un evento converge al mismo estado.
  */
-
-type PreapprovalStatus = "ACTIVE" | "CANCELED" | "INACTIVE" | "PAST_DUE"
-
-function mapMpStatus(
-  status: string | undefined,
-  paid: boolean,
-): PreapprovalStatus | null {
-  switch (status) {
-    case "authorized":
-      return paid ? "ACTIVE" : "PAST_DUE"
-    case "paused":
-    case "pending":
-      return "INACTIVE"
-    case "cancelled":
-      return "CANCELED"
-    default:
-      return null
-  }
-}
 
 export async function POST(request: Request) {
   if (!process.env.MP_ACCESS_TOKEN || !process.env.MP_WEBHOOK_SECRET) {
@@ -53,11 +45,19 @@ export async function POST(request: Request) {
   const type = url.searchParams.get("type")
   const dataId = url.searchParams.get("data.id") ?? ""
 
-  // Protección de entrada: tipos no relacionados se ignoran sin procesar.
-  if (type !== "subscription_preapproval" && type !== "subscription_plan") {
+  // Tópicos no relacionados: se ignoran sin procesar (y sin exigir firma).
+  if (type !== "order") {
     return NextResponse.json({ received: true })
   }
   if (!dataId) {
+    return NextResponse.json({ received: true })
+  }
+  // El `data.id` viene del query param de una petición que puede forjar
+  // cualquiera, así que su formato se valida antes de meterlo en el path de la
+  // API. Un id que no es una order nuestra se ignora en silencio (y no puede
+  // pasar la firma de todas formas).
+  if (!isValidMpOrderId(dataId)) {
+    console.error("mercadopago: data.id con formato inesperado")
     return NextResponse.json({ received: true })
   }
 
@@ -65,83 +65,78 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 401 })
   }
 
-  let preapproval
+  return handleOrder(dataId)
+}
+
+/**
+ * Replica en la BD lo que la order REAL dice:
+ *  - pagada  -> ACTIVE, plan de la order y `mpLastChargeAt` = ahora (empieza el
+ *    periodo de `MP_BILLING_PERIOD_DAYS`). No hay nada que reservar para el
+ *    siguiente ciclo: el usuario vuelve a pagar.
+ *  - muerta (rechazada, cancelada o reembolsada) -> PAST_DUE conservando el
+ *    plan. `mpLastChargeAt` NO se toca: el periodo en curso ya se pagó y sigue
+ *    hasta su fecha, y es el barrido diario quien lo degradará al vencer.
+ */
+async function handleOrder(dataId: string) {
+  let order: MpOrder
   try {
-    preapproval = await getMpPreapproval(dataId)
+    order = await getMpOrder(dataId)
   } catch (error) {
-    console.error("[mp:webhook] error consultando preapproval:", error)
-    return NextResponse.json(
-      { error: "preapproval_lookup_failed" },
-      { status: 502 },
-    )
-  }
-  if (!preapproval) {
-    return NextResponse.json(
-      { error: "preapproval_not_found" },
-      { status: 404 },
-    )
+    console.error("[mp:webhook] no se pudo leer la order:", error)
+    return NextResponse.json({ error: "order_lookup_failed" }, { status: 502 })
   }
 
+  // `external_reference` es lo único que MP nos devuelve de la order y es
+  // nuestro: sin él (o con un plan fuera de la escalera) no es una order nuestra.
+  const reference = parseMpExternalReference(order.external_reference)
+  if (!reference || !isPaidPlanSlug(reference.plan)) {
+    return NextResponse.json({ received: true })
+  }
+
+  // La fila se busca por el id que va dentro del `external_reference`, nunca por
+  // un id que venga de la notificación.
   const user = await prisma.user.findUnique({
-    where: { mpPreapprovalId: preapproval.id },
+    where: { id: reference.userId },
+    select: { id: true, plan: true },
   })
-
-  // Si no existe usuario para esa preapproval, puede ser un evento sobre
-  // una preapproval externa (spam/error). Se ignora silenciosamente pero se
-  // contesta 200 para no perpetuar reintentos.
   if (!user) {
     return NextResponse.json({ received: true })
   }
 
-  const plan = mpPlanFromPreapprovalPlanId(preapproval.preapproval_plan_id)
-  const status = mapMpStatus(
-    preapproval.status,
-    preapproval.status === "authorized",
-  )
+  const plan = reference.plan
+  const outcome = mpOrderOutcome(order)
 
-  if (!status) {
-    console.error(
-      "[mp:webhook] estado no reconocido:",
-      preapproval.status,
-    )
-    return NextResponse.json({ received: true })
-  }
-
-  if (status === "ACTIVE") {
-    // El plan debe ser válido y no debe degradar al usuario.
-    if (!plan || TIER_RANK[plan] < TIER_RANK[user.plan]) {
+  if (outcome === "paid") {
+    // Un pago de un plan INFERIOR al que ya tiene (una orden vieja que llegó
+    // tarde) no degrada: solo se renueva su periodo.
+    if (TIER_RANK[plan] < TIER_RANK[user.plan]) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { mpLastChargeAt: new Date() },
+      })
       return NextResponse.json({ received: true })
     }
+
     await prisma.user.update({
       where: { id: user.id },
       data: {
         plan,
         subscriptionStatus: "ACTIVE",
-        mpPreapprovalId: preapproval.id,
-        mpPreapprovalPlanId: preapproval.preapproval_plan_id ?? null,
+        mpLastChargeAt: new Date(),
       },
     })
     return NextResponse.json({ received: true })
   }
 
-  if (status === "CANCELED") {
+  if (outcome === "dead") {
     await prisma.user.update({
       where: { id: user.id },
-      data: {
-        plan: "FREE",
-        subscriptionStatus: "CANCELED",
-        mpPreapprovalId: null,
-        mpPreapprovalPlanId: null,
-      },
+      data: { subscriptionStatus: "PAST_DUE" },
     })
     return NextResponse.json({ received: true })
   }
 
-  // Paused/pending → INACTIVE: degradado a FREE mientras dure la pausa.
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { subscriptionStatus: status },
-  })
-
+  // `pending` o `unknown`: no se toca nada. Un pago en revisión puede acabar
+  // acreditándose, y degradar aquí dejaría al usuario sin lo que pagó.
   return NextResponse.json({ received: true })
 }

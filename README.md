@@ -36,12 +36,12 @@ Otras dependencias: `bcryptjs` (hash de contraseñas), `resend` (email), `class-
 ```bash
 npm install
 npm run dev            # dev server (Turbopack) en :3000
-npm run build          # prisma generate && prisma migrate deploy && next build
+npm run build          # prisma generate && next build (sin migraciones: ver "Migraciones en produccion")
 npm start -- -p 3100   # servir la build real (para pruebas E2E contra producción)
 npm run lint           # eslint (sin args)
 npm run db:generate    # prisma generate
 npm run db:migrate     # prisma migrate dev (crea y aplica migraciones)
-npm run db:deploy      # prisma migrate deploy (aplica migraciones pendientes, CI/prod)
+npm run db:deploy      # prisma migrate deploy (aplica migraciones pendientes: CI/prod, NUNCA en el build)
 npm run db:studio      # navegador visual de BD
 ```
 
@@ -57,7 +57,7 @@ Ver el detalle completo en [`.env.example`](./.env.example). Las que lee el cód
 - `ADMIN_EMAILS` — lista separada por comas (case-insensitive). **Mecanismo de admin**: en cada login y en cada `requireAdmin()` el usuario cuyo email esté en la lista es promovido a `role: "admin"`. Vacía → nadie es admin.
 - `RAWG_API_KEY` — búsqueda de juegos en el alta (RAWG). Sin ella, la búsqueda devuelve `[]`.
 - Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_COLLECTOR`.
-- MercadoPago: `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `MP_CURRENCY_ID`, `MP_PREAPPROVAL_PLAN_PRO/COLLECTOR`, `MP_PRICE_PRO/COLLECTOR`.
+- MercadoPago: `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `MP_CURRENCY_ID`, `MP_PRICE_PRO/COLLECTOR` y `CRON_SECRET` (barrido de periodos vencidos). Sin `MP_PRICE_*` el proveedor se considera no configurado.
 - `BLOB_READ_WRITE_TOKEN` — Vercel Blob para imágenes (sin token, en local las imágenes caen en `public/uploads/`).
 - Email: `RESEND_API_KEY`, `EMAIL_FROM`. **Sin `RESEND_API_KEY`, el registro auto-verifica** (no se puede login con correo no verificado si el email se envía).
 - `SITE_URL` — base para el `metadata.metadataBase` del layout raíz.
@@ -96,9 +96,9 @@ src/
       auth/register, verify, resend-verification, [...nextauth]
       games, games/[id], games/upload
       rawg/search
-      billing/checkout, billing/portal
+      billing/checkout, billing/portal, billing/upgrade
       stripe/webhook, mp/webhook
-      admin/users, admin/users/[id], admin/games, admin/games/[id], admin/plans, admin/platforms, admin/platforms/[id]
+      admin/users, admin/users/[id], admin/games, admin/games/[id], admin/plans, admin/platforms, admin/platforms/[id], admin/payment-providers
       health
   components/
     ui/                 # wrappers finos de Base UI (button, dialog, dropdown-menu, select…)
@@ -112,7 +112,9 @@ src/
     guard.ts            # requireAdmin() + promoción por ADMIN_EMAILS
     admin-emails.ts     # ADMIN_EMAILS parseado
     plans.ts            # helpers del plan (límites) — client-safe? No: server-only
-    billing.ts          # TIER_RANK, PLAN_META (precios USD), proveedores habilitados, price ids
+    billing.ts          # TIER_RANK, PLAN_META (precios USD), price ids, tipo Provider
+    providers.ts        # registro de medios de pago: enum PaymentProvider + variables de env que necesita cada uno
+    payment-providers.ts # interruptor del admin (PaymentProviderSetting) cruzado con la config de env
     payments.ts         # orquestador checkout/portal por proveedor (Stripe/MP)
     stripe.ts mp.ts     # clientes SDK/config por proveedor
     email.ts            # Resend (verificación)
@@ -142,11 +144,12 @@ src/
 | `User` | Cuenta, `plan` (texto, default `FREE`), `role` (`user`/`admin`), `bannedAt`, `emailVerifiedAt`, ids de Stripe/MP y estado de suscripción |
 | `Platform` | Plataformas gestionadas por el admin (`name`/`slug` únicos). **No son texto libre**: el cliente solo selecciona. `onDelete: Restrict` desde Game |
 | `Plan` | Planes DB-driven (`slug`, `nameEs`, `nameEn`, `gameLimit` nullable=ilimitado, `imageLimit`, `paid`, `active`, `sortOrder`) |
+| `PaymentProviderSetting` | Interruptor de cada medio de pago (`provider` = enum `PaymentProvider`, `enabled`). **Sin fila = habilitado**. Solo cierra compras nuevas |
 | `Game` | Juego del inventario (pertenece a un `User`, FK a `Platform`). `coverImageUrl` (portada, puede venir de RAWG), `images` → GameImage |
 | `GameImage` | Fotos por juego (posición 0 = portada). `onDelete: Cascade` desde Game |
 | `Account`, `Session`, `VerificationToken` | Tablas del adapter de Auth.js |
 
-Enums (exportados desde `@/generated/prisma/enums`): `Plan` legacy no existe (plan es texto); `GameStatus` (OWNED/SEALED/CIB/LOOSE/DIGITAL/WISHLIST/SELLING), `SubscriptionStatus` (ACTIVE/INACTIVE/PAST_DUE/CANCELED/TRIALING).
+Enums (exportados desde `@/generated/prisma/enums`): `Plan` legacy no existe (plan es texto); `GameStatus` (OWNED/SEALED/CIB/LOOSE/DIGITAL/WISHLIST/SELLING), `SubscriptionStatus` (ACTIVE/INACTIVE/PAST_DUE/CANCELED/TRIALING), `PaymentProvider` (stripe/mp).
 
 Semillas en migraciones: todos los `Platform` (migración `..._seed_all_platforms`) y los `Plan` por defecto (migración `..._add_dynamic_plans`): FREE (25 juegos, 1 foto), PRO (500, 3), COLLECTOR (∞, 5).
 
@@ -157,7 +160,10 @@ Semillas en migraciones: todos los `Platform` (migración `..._seed_all_platform
 
 ### Migraciones
 - Crear con `npm run db:migrate` (genera + aplica) o a mano con timestamp propio en `prisma/migrations/` y aplicar con `npm run db:deploy` (Prisma 7 no permite `migrate dev --create-only` no-interactivo con NOT NULL sin datos).
-- El build ejecuta `db:deploy` siempre: en CI/prod es automático.
+- **El build NO aplica migraciones** (`npm run build` = `prisma generate && next build`). En producción se aplican a mano (`npm run db:deploy`) o desde CI, antes/después del deploy.
+  - Motivo: `prisma migrate deploy` en el build rompe los deploys de Vercel (`npm run build exited with 1`) porque el `pg_advisory_lock` que Prisma usa para serializar migraciones expira contra el pooler de Neon (P1002), y además porque dos builds concurrentes se pelean por el mismo lock.
+  - El build solo necesita `prisma generate` (el cliente vive en `src/generated/prisma/`, que está en `.gitignore`).
+- Variables que el build de Vercel **no** necesita: ninguna (todas las rutas son dinámicas y `DATABASE_URL` solo se lee en runtime). Las migraciones sí la necesitan.
 
 ---
 
@@ -196,11 +202,14 @@ Las rutas de la API **no pasan por el proxy** (están excluidas), así que cada 
 - `src/lib/billing.ts`: `TIER_RANK` (FREE<PRO<COLLECTOR), `PLAN_META` (precios fijos en USD, `priceEnvKey`), `getEnabledProviders()` (Stripe y/o MP según env), `priceIdForPlan`, `planFromPriceId`.
 - `src/lib/payments.ts`: `checkoutUrl()` (por proveedor) y `portalUrl()`.
   - **Stripe**: checkout de suscripción (crea `Customer` en la primera compra, guarda `stripeCustomerId`); si ya hay suscripción ACTIVE → portal de cliente. El portal también se usa para gestionar una activa.
-  - **MP**: crea un `preapproval` (guarda `mpPreapprovalId` antes de la autorización); NO hay portal de autogestión ("no_self_service").
+  - **MP** (Checkout Pro con redirección, vía el SDK oficial `mercadopago`): crea una `order` con `processing_mode: "manual"` y devuelve la `checkout_url` de nivel superior; el usuario paga en la página hosted de MP (tarjeta, dinero de la cuenta, Rapipago, Pago Fácil o cuotas sin tarjeta). El alta **no** activa el plan en la respuesta del request: lo hace el webhook `order`. El importe sale siempre de `MP_PRICE_*`.
+- **Vencimiento en MP**: MP no agenda cobros y no se guarda tarjeta, así que cada pago da 30 días (`MP_BILLING_PERIOD_DAYS`) y el siguiente ciclo vuelve a pasar por el checkout. `vercel.json` corre a diario `/api/mp/expire` (Vercel Cron → `GET` + `Authorization: Bearer $CRON_SECRET`; sin `CRON_SECRET` responde 503) y degrada a FREE/INACTIVE solo a quien tiene `mpLastChargeAt` más antiguo que el periodo —el filtro `lt` excluye los `null`, así que nunca toca a un cliente de Stripe— limpiando esa misma columna.
+- **Upgrade en MP**: no hay prorrateo, así que subir de plan **es pagar el plan nuevo**: se devuelve la `checkout_url` de una order por su importe y el plan entra cuando se apruebe.
+- **Autogestión en MP**: no hay portal. Cancelar desde la app (`POST /api/billing/portal` con `provider: "mp"`) significa "no me cobres el mes que viene": vuelve a FREE y suelta el periodo en curso.
 - **Webhooks actualizan el plan** (única vía de cambiar plan de pago):
   - `POST /api/stripe/webhook` (firma `stripe-signature`, eventos: checkout.completed, subscription.updated, subscription.deleted, invoice.payment_failed). El plan se deriva de price ids reales + cross-check con metadata. **Guardia de rango**: nunca degrada un plan en curso.
-  - `POST /api/mp/webhook` (firma HMAC `x-signature`; verifica el estado REAL de la preapproval consultando la API de MP). Autorizado → activa/degrafa con guardia; cancelado → FREE.
-- Norma de seguridad a mantener: **nunca derivar el plan de inputs del cliente**; siempre del proveedor (price id / preapproval plan id) y contra BD.
+  - `POST /api/mp/webhook` (un solo tópico por query param: `order`). La firma HMAC `x-signature` la comprueba el `WebhookSignatureValidator` del SDK, y el `data.id` se valida antes de meterse en un path. Nunca se confía en el estado de la notificación: se repregunta `order.get` a la API de MP, y la fila se localiza por el `userId` del `external_reference` (`gv_<userId>_<PLAN>`) validado contra la allowlist de planes.
+- Norma de seguridad a mantener: **nunca derivar el plan de inputs del cliente**; siempre del proveedor (price id / `external_reference` firmado) y contra BD.
 
 ### Subida de imágenes (`/api/games/upload`)
 - Auth requerida, rate limited, `imageLimit > 0` obligatorio (403 `plan_required` si el plan no tiene fotos).
@@ -284,12 +293,15 @@ Si un servicio de terceros necesita conectividad client-side (webhooks en front,
 | `GET/POST/PATCH/DELETE /api/admin/plans` | CRUD de planes (GET devuelve `userCount`) |
 | `GET/POST /api/admin/platforms` | Lista/crea plataformas |
 | `DELETE /api/admin/platforms/[id]` | Borra (Restrict si tiene juegos) |
+| `GET /api/admin/payment-providers` | Estado de cada medio de pago (env + interruptor) |
+| `PATCH /api/admin/payment-providers` | `{provider, enabled}` — apaga/enciende compras nuevas |
 
 ### Billing
 | Método/Ruta | Descripción |
 |---|---|
-| `POST /api/billing/checkout` | `{plan, provider, locale}` → `{url}` (Stripe checkout / MP preapproval) |
-| `POST /api/billing/portal` | `{provider, locale}` → `{url}` (solo Stripe) |
+| `POST /api/billing/checkout` | `{plan, provider, locale}` → `{url}` (Stripe checkout / MP Checkout Pro). El provider debe estar **disponible**: credenciales en env + interruptor del admin encendido |
+| `POST /api/billing/portal` | `{provider, locale}` → `{url}` (solo Stripe devuelve portal; en MP es cancelar → vuelve a FREE). No mira el interruptor: es para quien ya paga |
+| `POST /api/billing/upgrade` | `{plan, locale}` → upgrade in situ del proveedor de la suscripción activa. No mira el interruptor |
 | `POST /api/stripe/webhook` | Eventos de Stripe (firma) |
 | `POST /api/mp/webhook` | Eventos de MP (firma HMAC) |
 

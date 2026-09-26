@@ -1,5 +1,6 @@
 import "server-only"
 import { prisma } from "@/lib/db"
+import type { Dictionary } from "@/messages/es"
 
 export type PlanRow = {
   slug: string
@@ -28,6 +29,24 @@ const planSelect = {
 export function planName(plan: PlanRow, locale: Locale): string {
   const name = locale === "en" ? plan.nameEn : plan.nameEs
   return name || plan.slug
+}
+
+/*
+ * Bullets de un plan derivados de sus límites en BD (no de textos sueltos por
+ * plan), para que la página de precios y la de facturación no puedan
+ * contradecirse cuando el admin cambie un límite desde /admin/plans.
+ */
+export function planFeatures(
+  plan: PlanRow,
+  pricing: Dictionary["pricing"],
+): string[] {
+  return [
+    plan.gameLimit === null
+      ? pricing.gamesUnlimited
+      : `${plan.gameLimit} ${pricing.games}`,
+    `${plan.imageLimit} ${pricing.photosPerGame}`,
+    ...(plan.paid ? [pricing.prioritySupport] : []),
+  ]
 }
 
 export async function getPlan(slug: string): Promise<PlanRow | null> {

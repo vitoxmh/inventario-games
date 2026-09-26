@@ -68,35 +68,6 @@ export const es = {
     gamesUnlimited: "Juegos ilimitados",
     photosPerGame: "fotos por juego",
     prioritySupport: "Soporte prioritario",
-    plans: [
-      {
-        name: "Free",
-        price: "$0",
-        description: "Para empezar tu colección.",
-        features: ["25 juegos", "1 foto por juego", "Búsqueda en RAWG"],
-      },
-      {
-        name: "Pro",
-        price: "$4.99",
-        description: "Para colecciones serias.",
-        features: [
-          "500 juegos",
-          "3 fotos por juego",
-          "Estadísticas y valoración",
-        ],
-      },
-      {
-        name: "Collector",
-        price: "$9.99",
-        description: "Para coleccionistas avanzados.",
-        features: [
-          "Juegos ilimitados",
-          "5 fotos por juego",
-          "Exportación CSV",
-          "Soporte prioritario",
-        ],
-      },
-    ],
   },
   cta: {
     title: "¿Listo para organizar tu colección?",
@@ -277,16 +248,13 @@ export const es = {
     usageImages: "Fotos",
     usagePerGame: "por juego",
     plansTitle: "Elige tu plan",
-    proName: "Pro",
-    proPrice: "4,99 $/mes",
-    proFeature: "Hasta 500 juegos · Fotos de tus juegos",
-    collectorName: "Collector",
-    collectorPrice: "9,99 $/mes",
-    collectorFeature: "Juegos ilimitados",
     subscribe: "Suscribirse",
     upgrade: "Mejorar a",
+    upgradeDone: "¡Plan mejorado! Ya tienes el nivel superior.",
     manageSubscription: "Gestionar suscripción",
-    processing: "Redirigiendo a Stripe…",
+    cancelSubscription: "Cancelar suscripción",
+    cancelDone: "Suscripción cancelada.",
+    processing: "Redirigiendo al pago…",
     stripeNotConfigured: "El pago aún no está disponible. Vuelve más tarde.",
     successBanner:
       "¡Suscripción activada! Tu nuevo plan ya está en marcha.",
@@ -298,8 +266,12 @@ export const es = {
     paymentWith: "Pagar con",
     alreadyActive:
       "Ya tienes una suscripción activa. Cáncelala antes de cambiar de proveedor.",
-    mpNoPortal:
-      "Esta suscripción se gestiona desde tu cuenta de Mercado Pago o contactando con el creador de GameVault.",
+    notAnUpgrade: "Ese plan no es una mejora sobre el que ya tienes.",
+    noActiveSubscription:
+      "No tienes una suscripción activa que mejorar. Suscríbete primero.",
+    cardError: "Tu banco rechazó el pago. Prueba con otra tarjeta.",
+    planUnavailable: "Ese plan no está disponible ahora mismo.",
+    upgradeFailed: "No se pudo completar el cambio de plan. Inténtalo de nuevo.",
   },
   admin: {
     title: "Admin",
@@ -373,6 +345,14 @@ export const es = {
     user: "Usuario",
     provider: "Proveedor",
     lastUpdate: "Último cambio",
+    payments: "Medios de pago",
+    paymentsHint:
+      "Enciende o apaga con qué medios se puede pagar una suscripción nueva. Las credenciales se siguen configurable en las variables de entorno del despliegue, y apagar aquí no afecta a quien ya tiene una suscripción activa en ese medio: esas siguen cobrándose y se pueden actualizar o cancelar.",
+    paymentsEnabled: "Habilitado",
+    paymentsAvailable: "Disponible",
+    paymentsOff: "Apagado",
+    paymentsMissingConfig: "Sin credenciales",
+    paymentsMissingEnv: "Faltan estas variables: ",
     sStatus: {
       ACTIVE: "Activa",
       INACTIVE: "Inactiva",

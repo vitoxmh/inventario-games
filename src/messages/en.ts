@@ -69,35 +69,6 @@ export const en: Dictionary = {
     gamesUnlimited: "Unlimited games",
     photosPerGame: "photos per game",
     prioritySupport: "Priority support",
-    plans: [
-      {
-        name: "Free",
-        price: "$0",
-        description: "To start your collection.",
-        features: ["25 games", "1 photo per game", "RAWG search"],
-      },
-      {
-        name: "Pro",
-        price: "$4.99",
-        description: "For serious collections.",
-        features: [
-          "500 games",
-          "3 photos per game",
-          "Stats and valuation",
-        ],
-      },
-      {
-        name: "Collector",
-        price: "$9.99",
-        description: "For advanced collectors.",
-        features: [
-          "Unlimited games",
-          "5 photos per game",
-          "CSV export",
-          "Priority support",
-        ],
-      },
-    ],
   },
   cta: {
     title: "Ready to organize your collection?",
@@ -278,16 +249,13 @@ export const en: Dictionary = {
     usageImages: "Photos",
     usagePerGame: "per game",
     plansTitle: "Choose your plan",
-    proName: "Pro",
-    proPrice: "$4.99/mo",
-    proFeature: "Up to 500 games · Photos of your games",
-    collectorName: "Collector",
-    collectorPrice: "$9.99/mo",
-    collectorFeature: "Unlimited games",
     subscribe: "Subscribe",
     upgrade: "Upgrade to",
+    upgradeDone: "Plan upgraded! You now have the higher tier.",
     manageSubscription: "Manage subscription",
-    processing: "Redirecting to Stripe…",
+    cancelSubscription: "Cancel subscription",
+    cancelDone: "Subscription cancelled.",
+    processing: "Redirecting to checkout…",
     stripeNotConfigured: "Payments are not available yet. Check back later.",
     successBanner:
       "Subscription activated! Your new plan is now live.",
@@ -299,8 +267,12 @@ export const en: Dictionary = {
     paymentWith: "Pay with",
     alreadyActive:
       "You already have an active subscription. Cancel it before switching providers.",
-    mpNoPortal:
-      "Manage this subscription from your Mercado Pago account or by contacting GameVault's creator.",
+    notAnUpgrade: "That plan is not an upgrade over your current one.",
+    noActiveSubscription:
+      "You have no active subscription to upgrade. Subscribe first.",
+    cardError: "Your bank declined the payment. Try another card.",
+    planUnavailable: "That plan is not available right now.",
+    upgradeFailed: "We couldn't complete the plan change. Please try again.",
   },
   admin: {
     title: "Admin",
@@ -374,6 +346,14 @@ export const en: Dictionary = {
     user: "User",
     provider: "Provider",
     lastUpdate: "Last update",
+    payments: "Payment methods",
+    paymentsHint:
+      "Turn the payment methods available for new subscriptions on or off. Credentials still live in the deployment environment variables, and switching a method off does not affect anyone who already has an active subscription through it: those keep being charged and can still be updated or cancelled.",
+    paymentsEnabled: "Enabled",
+    paymentsAvailable: "Available",
+    paymentsOff: "Off",
+    paymentsMissingConfig: "No credentials",
+    paymentsMissingEnv: "Missing these variables: ",
     sStatus: {
       ACTIVE: "Active",
       INACTIVE: "Inactive",
