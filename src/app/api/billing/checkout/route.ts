@@ -5,6 +5,7 @@ import { billingReturnUrl, isPaidPlanSlug } from "@/lib/billing"
 import { getAvailableProviders } from "@/lib/payment-providers"
 import { isProvider } from "@/lib/providers"
 import { checkoutUrl, BillingError } from "@/lib/payments"
+import { recordMpCheckout } from "@/lib/mp-settlement"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -89,9 +90,11 @@ export async function POST(request: Request) {
     })
 
     // Lo único que el proveedor ha confirmado y que hay que persistir es el
-    // customer de Stripe. Con MP no se escribe nada: la order aún no está pagada
-    // y su estado lo reconcilia el webhook `order` (que a su vez repregunta a la
-    // API de MP). Los query params de la return URL solo pintan el mensaje.
+    // customer de Stripe, y en MP el id de la order recién creada. La order aún
+    // no está pagada, así que su estado lo liquidan `settleMpCheckout` (webhook
+    // `order` o la página de facturación); aquí solo se guarda el id para que esa
+    // liquidación sea posible más tarde. Los query params de la return URL solo
+    // pintan el mensaje.
     //
     // `sync` es lo contrario: cuando el proveedor sí tiene una suscripción viva
     // pero nuestra fila aún no lo sabe (porque el webhook no ha llegado), aquí se
@@ -103,6 +106,16 @@ export async function POST(request: Request) {
     if (result.sync) Object.assign(data, result.sync)
     if (Object.keys(data).length > 0) {
       await prisma.user.update({ where: { id: user.id }, data })
+    }
+    if (result.mpOrder) {
+      await recordMpCheckout({
+        orderId: result.mpOrder.orderId,
+        amount: result.mpOrder.amount,
+        // El `userId` y el plan salen de lo ya validado arriba contra la
+        // allowlist, nunca del body sin validar.
+        userId: user.id,
+        plan,
+      })
     }
 
     return NextResponse.json({ url: result.url })

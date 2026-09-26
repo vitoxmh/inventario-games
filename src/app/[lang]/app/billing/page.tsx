@@ -11,6 +11,7 @@ import {
   type Provider,
 } from "@/lib/billing"
 import { getAvailableProviders } from "@/lib/payment-providers"
+import { settlePendingMpCheckoutsForUser } from "@/lib/mp-settlement"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { BillingClient, type BillingTier } from "@/components/billing/billing-client"
 
@@ -31,6 +32,23 @@ export default async function BillingPage(
 
   const session = await auth()
   const userId = session?.user?.id ?? null
+
+  /*
+   * Liquidación perezosa de Mercado Pago. La notificación del webhook es el camino
+   * normal para conceder un plan, pero si no llega (o llega con la firma
+   * rechazada) el pago se queda pagado en MP y sin conceder aquí. Antes de leer la
+   * fila del usuario se repregunta a MP por sus orders sin resolver, de modo que el
+   * plan que ve en pantalla ya sea el que MP tiene registrado.
+   *
+   * Solo se ejecuta con sesión, y filtra por el `userId` de esa sesión: sin sesión
+   * no hay nada que liquidar y no se llama a la API de MP. Un fallo aquí no puede
+   * romper la página (la liquidación traga sus errores), y es idempotente: una vez
+   * resuelta, la order deja de entrar en la consulta.
+   */
+  if (userId) {
+    await settlePendingMpCheckoutsForUser(userId)
+  }
+
   const user = userId
     ? await prisma.user.findUnique({
         where: { id: userId },

@@ -101,11 +101,51 @@ model User {
   // `order`; nunca la vuelta del usuario desde la return URL.
   mpLastChargeAt DateTime?
 
-  games    Game[]
-  sessions Session[]
-  accounts Account[]
+  games       Game[]
+  sessions    Session[]
+  accounts    Account[]
+  mpCheckouts MpCheckout[]
 
   @@index([mpLastChargeAt])
+}
+
+/*
+ * Una order de Mercado Pago creada por el checkout, con su estado de liquidación.
+ *
+ * Existe por un motivo concreto: en MP no hay forma de LISTAR los pagos de un
+ * usuario. `GET /v1/orders/search` responde 400 con el token que tenemos, y la
+ * URL de retorno no trae el `order_id`, así que la única forma de volver a una
+ * order es remembering su id. Sin esta tabla, un pago que el webhook no llegó a
+ * resolver queda irrecuperable; con ella, `settleMpCheckout` puede repreguntar a
+ * MP por cualquier order nuestra las veces que haga falta.
+ *
+ * `orderId` es el id que devuelve MP (`ORD...`) y es único: si MP devolviera un
+ * id repetido, el `upsert` de la ruta de checkout no crearía una segunda fila.
+ *
+ * `plan` es el slug de la escalera (PRO/COLLECTOR) tal como se envió a MP en el
+ * `external_reference`. Es `String` y no el enum `Plan` porque el plan vive en la
+ * tabla `Plan` (CRUD del admin) y no en el enum; lo que decide es la allowlist
+ * `PAID_PLANS` en código, nunca este valor por sí solo.
+ *
+ * `status` es el último desenlace conocido de la order, no el estado de la
+ * suscripción del usuario (ese vive en `User.subscriptionStatus`). `pending`
+ * significa "todavía sin resolver": es lo que la página de facturación liquida al
+ * abrirse, y lo que deja la fila como averiguable.
+ */
+model MpCheckout {
+  id         String    @id @default(cuid())
+  orderId    String    @unique
+  userId     String
+  plan       String
+  amount     String
+  status     String    @default("pending")
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, createdAt])
 }
 
 model Game {

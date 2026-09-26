@@ -45,6 +45,14 @@ export type CheckoutResult = {
   url: string
   kind: "checkout" | "portal"
   stripeCustomerId?: string
+  /**
+   * Order de MP recién creada, con el id que devuelve el proveedor. La ruta la
+   * persiste en `MpCheckout` para que el pago se pueda liquidar aunque la
+   * notificación del webhook no llegue nunca (ver `src/lib/mp-settlement.ts`).
+   * Solo en el proveedor MP: Stripe no lo necesita porque su suscripción se puede
+   * listar en su API.
+   */
+  mpOrder?: { orderId: string; amount: string }
   /** Verdad del proveedor para arreglar la fila local; la aplica la ruta. */
   sync?: BillingSync
 }
@@ -252,10 +260,13 @@ async function mpCheckoutUrl(args: {
   })
 
   // La order nace `created`: todavía no se ha pagado nada, así que NO se toca la
-  // fila del usuario. El plan lo concede quien repregunte el estado real de la
-  // order (el webhook `order` o la vuelta del usuario).
+  // fila del usuario. El plan lo concede quien liquide la order: el webhook
+  // `order` o, si la notificación no llegó, la página de facturación.
+  // El id vuelve en el resultado para que la ruta lo registre: sin guardarlo, un
+  // pago que el webhook no alcanzó a ver sería irrecuperable (a MP no se le
+  // pueden listar los pagos de un usuario).
   console.error(`mercadopago: order ${orderId} creada para el checkout`)
-  return { url: checkoutUrl, kind: "checkout" }
+  return { url: checkoutUrl, kind: "checkout", mpOrder: { orderId, amount } }
 }
 
 /** Nombre del producto que ve el usuario en la página de MP. */
