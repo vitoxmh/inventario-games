@@ -61,12 +61,21 @@ export const en: Dictionary = {
     title: "Simple pricing",
     subtitle: "Start free. Upgrade when your collection grows.",
     monthly: "/mo",
+    // Period suffixes for plans that are not monthly (edited by the admin in
+    // /admin/plans). The plural is formatted by `Intl`; only the singular without
+    // the number lives here, because "1 month" reads like data and "/month" like
+    // a price.
+    periodDay: "/day",
+    periodWeek: "/week",
+    periodYear: "/year",
     popular: "Most popular",
     cta: "Choose plan",
     yourPlan: "Your plan",
     managePlan: "Manage plan",
     unavailable: "Coming soon",
     priceFree: "$0",
+    // A paid plan with no price in the DB is not "free": it just has no price yet.
+    priceUnavailable: "Price TBD",
     games: "games",
     gamesUnlimited: "Unlimited games",
     photosPerGame: "photos per game",
@@ -94,6 +103,7 @@ export const en: Dictionary = {
     madeWith: "Made for collectors",
   },
   app: {
+    navLabel: "App navigation",
     dashboard: "My inventory",
     addGame: "Add game",
     emptyTitle: "Your collection is empty",
@@ -277,6 +287,13 @@ export const en: Dictionary = {
     mpPeriodActive:
       "You already have a paid period running. It renews when it ends, there's no need to buy it again.",
     upgradeFailed: "We couldn't complete the plan change. Please try again.",
+    payments: {
+      title: "Payment history",
+      subtitle: "Every payment you have made, with what it gave you and when.",
+      empty: "You have no payments recorded yet.",
+      limited: "This is a view of your most recent payments.",
+      amountUnknown: "Amount unavailable",
+    },
   },
   admin: {
     title: "Admin",
@@ -297,9 +314,22 @@ export const en: Dictionary = {
     imageLimit: "Photos per game",
     gameLimit: "Game limit",
     unlimited: "No limit",
+    // The duration is the same figure for both providers: the days each payment
+    // buys on Mercado Pago and the billing period of the Stripe subscription.
+    durationDays: "Duration (days)",
+    durationDaysHint:
+      "Duration is how many days of access each payment buys. On Mercado Pago it is the period that renews and that the daily sweep expires; on Stripe it is the period the subscription bills. Changing it also changes what the pricing page shows.",
     planNameEs: "Name (ES)",
     planNameEn: "Name (EN)",
     addPlan: "Add plan",
+    pricing: "Pricing",
+    // The unit is spelled out because the number typed is in minor units
+    // (cents), and that is exactly what gets stored.
+    stripePrice: "Stripe price (USD cents)",
+    mpPrice: "Mercado Pago price (minor units)",
+    stripeProductId: "Stripe product (prod_...)",
+    priceUnset: "no price",
+    mpCurrencyUnset: "MP_CURRENCY_ID not set",
     deletePlan: "Delete plan",
     confirmDeletePlan: "Delete this plan?",
     confirmDeletePlanBody:

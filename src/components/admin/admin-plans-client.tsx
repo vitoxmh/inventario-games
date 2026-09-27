@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatUsdMinor, minorToMajor } from "@/lib/money"
 import type { Dictionary } from "@/messages/es"
 
 type AdminDict = Dictionary["admin"]
@@ -39,6 +40,10 @@ type AdminPlan = {
   paid: boolean
   active: boolean
   sortOrder: number
+  priceCents: number | null
+  mpPriceMinor: number | null
+  stripeProductId: string | null
+  durationDays: number
   userCount: number
 }
 
@@ -48,6 +53,17 @@ type Draft = {
   gameLimit: string
   imageLimit: string
   active: boolean
+  /*
+   * Precios en UNIDADES MENORES, como cadenas porque van en un input de texto
+   * (vacío = sin precio). El input NO lleva `type="number"` a propósito: un
+   * number input con `value=""` no es representable y el admin no puede borrar
+   * el precio; además `Number("")` es 0, que es un precio.
+   */
+  priceCents: string
+  mpPriceMinor: string
+  stripeProductId: string
+  /** Días de acceso que compra un pago. Cadena por el mismo motivo que los precios. */
+  durationDays: string
 }
 
 function toDraft(plan: AdminPlan): Draft {
@@ -57,15 +73,76 @@ function toDraft(plan: AdminPlan): Draft {
     gameLimit: plan.gameLimit === null ? "" : String(plan.gameLimit),
     imageLimit: String(plan.imageLimit),
     active: plan.active,
+    priceCents: plan.priceCents === null ? "" : String(plan.priceCents),
+    mpPriceMinor: plan.mpPriceMinor === null ? "" : String(plan.mpPriceMinor),
+    stripeProductId: plan.stripeProductId ?? "",
+    durationDays: String(plan.durationDays),
   }
+}
+
+/** Cuerpo del PATCH: los precios viajan como enteros o null, nunca como "". */
+function pricePayload(draft: Draft) {
+  return {
+    priceCents: draft.priceCents.trim() === "" ? null : Number(draft.priceCents),
+    mpPriceMinor:
+      draft.mpPriceMinor.trim() === "" ? null : Number(draft.mpPriceMinor),
+    stripeProductId: draft.stripeProductId.trim() || null,
+  }
+}
+
+/** Entero >= 0 o null. Lo que no sea un entero no se previsualiza. */
+function intOrNull(value: string): number | null {
+  const trimmed = value.trim()
+  if (trimmed === "") return null
+  const n = Number(trimmed)
+  return Number.isInteger(n) && n >= 0 ? n : null
+}
+
+/**
+ * Duración que el servidor aceptaría: entero dentro del rango que viene de
+ * `src/lib/plans`. Se comprueba en el cliente para deshabilitar el guardado en
+ * lugar de dejar que un 400 sea la única señal —el `min`/`max` del input avisan,
+ * pero un campo vacío o un "30 días" tecleado se cuelan igual—.
+ */
+function durationOk(
+  value: string,
+  range: { min: number; max: number },
+): boolean {
+  const trimmed = value.trim()
+  if (trimmed === "") return false
+  const n = Number(trimmed)
+  return Number.isInteger(n) && n >= range.min && n <= range.max
+}
+
+/**
+ * Previsualización del importe de MP con la moneda de la cuenta al lado
+ * ("4990 CLP"), sin `Intl` de moneda: aquí el código ISO explícito es justo lo
+ * que quita la ambigüedad de "$" entre el peso chileno y el dólar, y no hace
+ * falta que el panel dependa del locale.
+ */
+function formatMinor(
+  minor: number | null,
+  currency: string | null,
+  dict: AdminDict,
+): string | null {
+  if (minor === null || minor <= 0) return null
+  if (!currency) return dict.mpCurrencyUnset
+  const major = minorToMajor(minor, currency)
+  return major === null ? null : `${major} ${currency}`
 }
 
 export function AdminPlansClient({
   initialPlans,
   dict,
+  mpCurrency,
+  durationRange,
 }: {
   initialPlans: AdminPlan[]
   dict: AdminDict
+  /** Moneda de la cuenta de MP, resuelta en el servidor (el cliente no lee env). */
+  mpCurrency: string | null
+  /** Rango válido de `durationDays`, resuelto en el servidor desde `src/lib/plans`. */
+  durationRange: { min: number; max: number }
 }) {
   const [plans, setPlans] = useState<AdminPlan[]>(initialPlans)
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() =>
@@ -77,6 +154,10 @@ export function AdminPlansClient({
     gameLimit: "",
     imageLimit: "1",
     active: true,
+    priceCents: "",
+    mpPriceMinor: "",
+    stripeProductId: "",
+    durationDays: "30",
   })
   const [pending, startTransition] = useTransition()
 
@@ -89,6 +170,7 @@ export function AdminPlansClient({
 
   function save(slug: string) {
     const draft = drafts[slug]
+    if (!durationOk(draft.durationDays, durationRange)) return
     startTransition(async () => {
       const res = await fetch("/api/admin/plans", {
         method: "PATCH",
@@ -100,6 +182,8 @@ export function AdminPlansClient({
           gameLimit: draft.gameLimit === "" ? null : Number(draft.gameLimit),
           imageLimit: Number(draft.imageLimit),
           active: draft.active,
+          durationDays: Number(draft.durationDays),
+          ...pricePayload(draft),
         }),
       })
       if (!res.ok) {
@@ -110,6 +194,7 @@ export function AdminPlansClient({
       setPlans((prev) =>
         prev.map((p) => (p.slug === slug ? { ...p, ...data.plan } : p)),
       )
+      setDrafts((prev) => ({ ...prev, [slug]: toDraft(data.plan) }))
       toast.success(dict.saved)
     })
   }
@@ -142,6 +227,7 @@ export function AdminPlansClient({
   function add(event: React.FormEvent) {
     event.preventDefault()
     if (!newPlan.nameEs.trim()) return
+    if (!durationOk(newPlan.durationDays, durationRange)) return
     startTransition(async () => {
       const res = await fetch("/api/admin/plans", {
         method: "POST",
@@ -153,6 +239,8 @@ export function AdminPlansClient({
           gameLimit: newPlan.gameLimit === "" ? null : Number(newPlan.gameLimit),
           imageLimit: Number(newPlan.imageLimit) || 1,
           active: newPlan.active,
+          durationDays: Number(newPlan.durationDays),
+          ...pricePayload(newPlan),
         }),
       })
       if (!res.ok) {
@@ -164,7 +252,17 @@ export function AdminPlansClient({
         prev.concat({ ...data.plan, userCount: 0 }).sort((a, b) => a.slug.localeCompare(b.slug)),
       )
       setDrafts((prev) => ({ ...prev, [data.plan.slug]: toDraft(data.plan) }))
-      setNewPlan({ nameEs: "", nameEn: "", gameLimit: "", imageLimit: "1", active: true })
+      setNewPlan({
+        nameEs: "",
+        nameEn: "",
+        gameLimit: "",
+        imageLimit: "1",
+        active: true,
+        priceCents: "",
+        mpPriceMinor: "",
+        stripeProductId: "",
+        durationDays: "30",
+      })
       toast.success(dict.saved)
     })
   }
@@ -243,9 +341,30 @@ export function AdminPlansClient({
             className="h-8 w-20"
           />
         </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="plan-new-duration" className="text-xs font-medium text-muted-foreground">
+            {dict.durationDays}
+          </label>
+          <Input
+            id="plan-new-duration"
+            type="number"
+            inputMode="numeric"
+            min={durationRange.min}
+            max={durationRange.max}
+            value={newPlan.durationDays}
+            onChange={(event) =>
+              setNewPlan((prev) => ({ ...prev, durationDays: event.target.value }))
+            }
+            className="h-8 w-20"
+          />
+        </div>
         <Button
           type="submit"
-          disabled={pending || newPlan.nameEs.trim().length === 0}
+          disabled={
+            pending ||
+            newPlan.nameEs.trim().length === 0 ||
+            !durationOk(newPlan.durationDays, durationRange)
+          }
           className="inline-flex items-center gap-1.5"
         >
           <Plus className="size-4" aria-hidden="true" />
@@ -261,6 +380,8 @@ export function AdminPlansClient({
               <TableHead>{dict.slug}</TableHead>
               <TableHead>{dict.gameLimit}</TableHead>
               <TableHead>{dict.imageLimit}</TableHead>
+              <TableHead>{dict.durationDays}</TableHead>
+              <TableHead>{dict.pricing}</TableHead>
               <TableHead>{dict.plan}</TableHead>
               <TableHead className="text-center">{dict.gamesCount}*</TableHead>
               <TableHead className="text-right">{dict.actions}</TableHead>
@@ -269,7 +390,7 @@ export function AdminPlansClient({
           <TableBody>
             {plans.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                   {dict.noGames}
                 </TableCell>
               </TableRow>
@@ -282,7 +403,11 @@ export function AdminPlansClient({
                     draft.nameEn !== plan.nameEn ||
                     draft.gameLimit !== (plan.gameLimit === null ? "" : String(plan.gameLimit)) ||
                     draft.imageLimit !== String(plan.imageLimit) ||
-                    draft.active !== plan.active)
+                    draft.active !== plan.active ||
+                    draft.durationDays !== String(plan.durationDays) ||
+                    draft.priceCents !== (plan.priceCents === null ? "" : String(plan.priceCents)) ||
+                    draft.mpPriceMinor !== (plan.mpPriceMinor === null ? "" : String(plan.mpPriceMinor)) ||
+                    draft.stripeProductId !== (plan.stripeProductId ?? ""))
                 return (
                   <TableRow key={plan.slug}>
                     <TableCell>
@@ -344,6 +469,83 @@ export function AdminPlansClient({
                       />
                     </TableCell>
                     <TableCell>
+                      {/*
+                        * La duración es el mismo dato para los dos proveedores: en
+                        * MP son los días que da cada pago (y los que vence el
+                        * barrido diario) y en Stripe el periodo de la
+                        * suscripción. En el plan gratuito da igual: no se cobra,
+                        * no se renueva y no se vence.
+                        */}
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={durationRange.min}
+                        max={durationRange.max}
+                        value={draft.durationDays}
+                        onChange={(event) =>
+                          setDraft(plan.slug, { durationDays: event.target.value })
+                        }
+                        className="h-7 w-20"
+                        aria-label={dict.durationDays}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {/*
+                        * Los inputs van en unidades menores (céntimos para Stripe,
+                        * minor units de MP_CURRENCY_ID para Mercado Pago) y la
+                        * previsualización de al lado es la que sabe cuántos
+                        * decimales tiene cada moneda: teclear "499" tiene que
+                        * leerse como $4.99, y no obligar al admin a hacer la
+                        * división mental.
+                        */}
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            inputMode="numeric"
+                            value={draft.priceCents}
+                            onChange={(event) =>
+                              setDraft(plan.slug, { priceCents: event.target.value })
+                            }
+                            placeholder="0"
+                            className="h-7 w-20"
+                            autoComplete="off"
+                            aria-label={dict.stripePrice}
+                          />
+                          <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatUsdMinor(intOrNull(draft.priceCents), "en") ??
+                              dict.priceUnset}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            inputMode="numeric"
+                            value={draft.mpPriceMinor}
+                            onChange={(event) =>
+                              setDraft(plan.slug, { mpPriceMinor: event.target.value })
+                            }
+                            placeholder="0"
+                            className="h-7 w-20"
+                            autoComplete="off"
+                            aria-label={dict.mpPrice}
+                          />
+                          <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatMinor(intOrNull(draft.mpPriceMinor), mpCurrency, dict) ??
+                              dict.priceUnset}
+                          </span>
+                        </div>
+                        <Input
+                          value={draft.stripeProductId}
+                          onChange={(event) =>
+                            setDraft(plan.slug, { stripeProductId: event.target.value })
+                          }
+                          placeholder="prod_..."
+                          className="h-7 w-44 font-mono text-xs"
+                          autoComplete="off"
+                          aria-label={dict.stripeProductId}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={draft.active}
@@ -366,7 +568,9 @@ export function AdminPlansClient({
                           type="button"
                           size="sm"
                           variant="outline"
-                          disabled={pending || !dirty}
+                          disabled={
+                            pending || !dirty || !durationOk(draft.durationDays, durationRange)
+                          }
                           onClick={() => save(plan.slug)}
                           className="inline-flex items-center gap-1.5"
                         >
@@ -413,6 +617,7 @@ export function AdminPlansClient({
       <p className="text-sm text-muted-foreground">
         *{dict.deletePlanBodyHint}
       </p>
+      <p className="text-sm text-muted-foreground">{dict.durationDaysHint}</p>
     </div>
   )
 }

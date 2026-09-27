@@ -60,12 +60,20 @@ export const es = {
     title: "Precios simples",
     subtitle: "Empieza gratis. Actualiza cuando tu colección crezca.",
     monthly: "/mes",
+    // Sufijos del periodo cuando el plan no es mensual (lo edita el admin en
+    // /admin/plans). El plural lo formatea `Intl`; aquí solo el singular sin
+    // número, porque "1 mes" suena a dato y "/mes" a precio.
+    periodDay: "/día",
+    periodWeek: "/semana",
+    periodYear: "/año",
     popular: "Más popular",
     cta: "Elegir plan",
     yourPlan: "Tu plan",
     managePlan: "Gestionar plan",
     unavailable: "Disponible pronto",
     priceFree: "$0",
+    // Un plan de pago sin precio en BD no está "gratis": no tiene precio todavía.
+    priceUnavailable: "Precio por definir",
     games: "juegos",
     gamesUnlimited: "Juegos ilimitados",
     photosPerGame: "fotos por juego",
@@ -93,6 +101,7 @@ export const es = {
     madeWith: "Hecho para coleccionistas",
   },
   app: {
+    navLabel: "Navegación de la aplicación",
     dashboard: "Mi inventario",
     addGame: "Añadir juego",
     emptyTitle: "Tu colección está vacía",
@@ -276,6 +285,13 @@ export const es = {
     mpPeriodActive:
       "Ya tienes un periodo de pago vigente. Se renueva cuando termine, no hace falta comprarlo otra vez.",
     upgradeFailed: "No se pudo completar el cambio de plan. Inténtalo de nuevo.",
+    payments: {
+      title: "Historial de pagos",
+      subtitle: "Cada pago que has hecho, con lo que te dio y cuándo.",
+      empty: "Todavía no tienes pagos registrados.",
+      limited: "Esta es una vista de los pagos más recientes.",
+      amountUnknown: "Importe no disponible",
+    },
   },
   admin: {
     title: "Admin",
@@ -296,9 +312,22 @@ export const es = {
     imageLimit: "Fotos por juego",
     gameLimit: "Límite de juegos",
     unlimited: "Sin límite",
+    // La duración es el mismo dato para los dos proveedores: los días que da cada
+    // pago en MP y el periodo de la suscripción en Stripe.
+    durationDays: "Duración (días)",
+    durationDaysHint:
+      "La duración son los días de acceso que compra cada pago. En Mercado Pago es el periodo que se renueva y vence el barrido diario; en Stripe es el periodo con el que se cobra la suscripción. Cambiarla también cambia lo que se muestra en la página de precios.",
     planNameEs: "Nombre (ES)",
     planNameEn: "Nombre (EN)",
     addPlan: "Añadir plan",
+    pricing: "Precios",
+    // Etiquetas del input: la unidad menor va en el texto porque el número que se
+    // teclea es en céntimos / minor units, y ese es el dato que se guarda.
+    stripePrice: "Precio Stripe (céntimos USD)",
+    mpPrice: "Precio Mercado Pago (unidades menores)",
+    stripeProductId: "Product de Stripe (prod_...)",
+    priceUnset: "sin precio",
+    mpCurrencyUnset: "MP_CURRENCY_ID no configurada",
     deletePlan: "Eliminar plan",
     confirmDeletePlan: "¿Eliminar este plan?",
     confirmDeletePlanBody:

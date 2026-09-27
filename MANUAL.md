@@ -104,10 +104,19 @@ Botón **"Suscribirse a PRO / Suscribirse a COLLECTOR"** → `POST /api/billing/
 ### Con suscripción activa
 Botón **"Gestionar suscripción"** → `POST /api/billing/portal` → abre el **portal de cliente de Stripe**, donde se puede **cambiar de plan, actualizar la tarjeta y cancelar**. El estado (ACTIVE/PAST_DUE/CANCELED/TRIALING/INACTIVE) se refleja tras procesar el webhook.
 
+### Historial de pagos
+Abajo del todo de `/es/app/billing` está la lista de **pagos confirmados**: plan, periodo que duró el pago, medio de pago (Stripe o Mercado Pago), número de referencia, importe y fecha. Si nunca has pagado, sale "Todavía no tienes pagos registrados".
+
+- Solo aparecen cobros **confirmados**; no se listan intentos fallidos ni cancelados.
+- El importe se pinta en la **moneda en la que se cobró** (USD en Stripe, la de tu cuenta en Mercado Pago), no convertida.
+- Los pagos de Mercado Pago anteriores a esta lista se rellenan solos la primera vez que entras en la página.
+- Es un histórico de lectura: cambiar de plan, actualizar la tarjeta o cancelar se sigue haciendo en el portal del proveedor.
+
 ### Notas para revisión
-- Los precios y proveedores salen de las variables de entorno (`.env`): actualmente **faltan las credenciales de pago** (`STRIPE_SECRET_KEY` + `STRIPE_PRICE_PRO`/`STRIPE_PRICE_COLLECTOR`, o `MP_ACCESS_TOKEN` + `MP_PREAPPROVAL_*`). Sin ellas:
+- Los **precios** salen de la tabla `Plan` y se editan en `/admin/plans` (no del `.env`): `priceCents` para Stripe (céntimos USD) y `mpPriceMinor` para Mercado Pago (unidades menores de `MP_CURRENCY_ID`). La **configuración** de los proveedores sí viene del entorno, y actualmente **faltan las credenciales de pago** (`STRIPE_SECRET_KEY` o `MP_ACCESS_TOKEN` + `MP_WEBHOOK_SECRET` + `MP_CURRENCY_ID`). Sin credenciales:
   - La página muestra "Stripe no configurado" y no aparecen botones de pago.
   - `POST /api/billing/checkout` y `/api/billing/portal` responden `503 provider_not_available`.
+  - Un plan con las credenciales puestas pero **sin precio** en `/admin/plans` responde `503 plan_unavailable`: es distinto de un proveedor sin configurar.
 - El plan de un usuario sólo cambia vía webhook de pago (o a mano en BD). Los límites están en `src/lib/plans.ts`.
 
 ---

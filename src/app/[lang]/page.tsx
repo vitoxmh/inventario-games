@@ -16,7 +16,6 @@ import { PricingCards, buildPricingCards } from "@/components/site/pricing-cards
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
 import { getViewerPlan, listPlans, type PlanRow } from "@/lib/plans"
-import { planPriceCents } from "@/lib/billing"
 import { absoluteUrl, buildAlternates, OG_LOCALE, safeJsonLd } from "@/lib/seo"
 import type { Metadata } from "next"
 
@@ -47,11 +46,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /*
- * Datos estructurados Schema.org. El precio sale de `planPriceCents` (constante
- * de la app) y no del nombre del plan, que es texto de base de datos editable
- * por un admin: si ese nombre cambiara, el price del marcado dejaría de ser el
- * que se cobra. Los importes van como string con dos decimales ("4.99"), nunca
- * 4.9900000000000003 por coma flotante.
+ * Datos estructurados Schema.org. El precio sale de la fila del plan (la que
+ * edita el admin en /admin/plans), no del nombre, que es texto editable, ni de
+ * una constante de código. Los importes van como string con dos decimales
+ * ("4.99"), nunca 4.9900000000000003 por coma flotante.
+ *
+ * Se marca el precio de Stripe, que es el de referencia en USD. Un plan de pago
+ * sin precio se OMITE del marcado en vez de publicarse a 0: structured data con
+ * precio 0 es peor que no tener oferta, porque dice "gratis" y no lo está.
  */
 function buildJsonLd(args: {
   name: string
@@ -60,25 +62,27 @@ function buildJsonLd(args: {
   plans: PlanRow[]
 }): string {
   const { name, description, locale, plans } = args
-  const offers = plans.map((plan) => {
-    const cents = planPriceCents(plan.slug)
-    return {
-      "@type": "Offer",
-      name: plan.slug,
-      price: cents === null ? "0" : (cents / 100).toFixed(2),
-      priceCurrency: "USD",
-      category: "SaaS",
-      availability: "https://schema.org/InStock",
-      url: absoluteUrl(`/${locale}/pricing`),
-      priceSpecification: {
-        "@type": "UnitPriceSpecification",
-        price: cents === null ? "0" : (cents / 100).toFixed(2),
+  const offers = plans
+    .filter((plan) => !plan.paid || (plan.priceCents !== null && plan.priceCents > 0))
+    .map((plan) => {
+      const cents = plan.priceCents ?? 0
+      return {
+        "@type": "Offer",
+        name: plan.slug,
+        price: (cents / 100).toFixed(2),
         priceCurrency: "USD",
-        billingIncrement: 1,
-        unitCode: "MON",
-      },
-    }
-  })
+        category: "SaaS",
+        availability: "https://schema.org/InStock",
+        url: absoluteUrl(`/${locale}/pricing`),
+        priceSpecification: {
+          "@type": "UnitPriceSpecification",
+          price: (cents / 100).toFixed(2),
+          priceCurrency: "USD",
+          billingIncrement: 1,
+          unitCode: "MON",
+        },
+      }
+    })
 
   return safeJsonLd({
     "@context": "https://schema.org",

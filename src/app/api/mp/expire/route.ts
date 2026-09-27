@@ -1,7 +1,10 @@
 import { timingSafeEqual } from "node:crypto"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { MP_BILLING_PERIOD_DAYS } from "@/lib/mp"
+import {
+  DEFAULT_PLAN_DURATION_DAYS,
+  planDurationDaysOf,
+} from "@/lib/plans"
 import { isPaidPlanSlug, PAID_PLANS } from "@/lib/billing"
 
 export const dynamic = "force-dynamic"
@@ -9,16 +12,24 @@ export const dynamic = "force-dynamic"
 /*
  * Barrido diario de periodos vencidos de Mercado Pago.
  *
- * En este modelo MP NO agenda cobros y no se guarda tarjeta: cada pago da
- * `MP_BILLING_PERIOD_DAYS` de acceso y el siguiente ciclo vuelve a pasar por el
- * checkout. Por eso no hay nada que "renovar" aquí: lo que hay que hacer es
- * cerrar el periodo de quien ya no lo ha renovado, que es lo único que mantiene
- * la promesa de "el plan paid es de pago durante 30 días".
+ * En este modelo MP NO agenda cobros y no se guarda tarjeta: cada pago da los
+ * `durationDays` de su plan (lo edita el admin en /admin/plans) de acceso y el
+ * siguiente ciclo vuelve a pasar por el checkout. Por eso no hay nada que
+ * "renovar" aquí: lo que hay que hacer es cerrar el periodo de quien ya no lo ha
+ * renovado, que es lo único que mantiene la promesa de "este plan da acceso
+ * durante los días que dice su ficha".
  *
  * A quién degrada (y a quién NO):
  *  - Solo filas con `mpLastChargeAt` más antiguo que el periodo. El filtro `lt`
  *    excluye los `null` a propósito: un usuario de Stripe, o uno que nunca ha
  *    pagado con MP, tiene esa columna vacía y este endpoint no lo toca jamás.
+ *  - Como la duración es POR PLAN, la consulta se hace con la más larga de las
+ *    configuradas (un superconjunto de candidatos: así no se deja fuera a nadie)
+ *    y hay un segundo corte en el bucle con el plazo del plan de cada fila. Con la
+ *    misma instantánea de durations los dos cortes coinciden y el del bucle no
+ *    llega a decidir nada: es una red de seguridad para el caso de que el admin
+ *    edite `/admin/plans` entre la consulta y el update (subir la duración de un
+ *    plan mientras corre el barrido), donde sí evita degradar antes de tiempo.
  *  - La lista de planes pagados se comprueba además en el bucle (allowlist), por
  *    si una fila quedara con `mpLastChargeAt` puesto y plan FREE.
  *  - Al degradar se limpia `mpLastChargeAt`, así que un FREE no vuelve a entrar
@@ -34,7 +45,7 @@ export const dynamic = "force-dynamic"
  * el POST se deja para dispararlo a mano o desde otro planificador. La regla de
  * "no mutar en GET" no aplica aquí: la autenticación es un secreto de servidor
  * en la cabecera, no una cookie de sesión, así que no hay superficie de CSRF, y
- * la acción está acotada por la ventana de 30 días (es idempotente aunque se
+ * la acción está acotada por la ventana del periodo (es idempotente aunque se
  * ejecute mil veces).
  */
 
@@ -65,8 +76,26 @@ async function runSweep(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
 
-  const periodMs = MP_BILLING_PERIOD_DAYS * 24 * 60 * 60 * 1000
-  const expiredBefore = new Date(Date.now() - periodMs)
+  const now = Date.now()
+  /*
+   * Un plazo por plan, no uno global: la duración la edita el admin y puede ser
+   * distinta en cada plan. La consulta usa la MÁS larga (para no dejar fuera a
+   * nadie) y el bucle vuelve a comprobar el plazo del plan de cada fila (para no
+   * degradar a tiempo si la duración cambió entre medias).
+   */
+  const planDurations = new Map(
+    (
+      await prisma.plan.findMany({
+        where: { slug: { in: [...PAID_PLANS] } },
+        select: { slug: true, durationDays: true },
+      })
+    ).map((plan) => [plan.slug, planDurationDaysOf(plan.durationDays)]),
+  )
+  const longestPeriod = Math.max(
+    DEFAULT_PLAN_DURATION_DAYS,
+    ...planDurations.values(),
+  )
+  const expiredBefore = new Date(now - longestPeriod * 24 * 60 * 60 * 1000)
 
   const candidates = await prisma.user.findMany({
     where: {
@@ -83,6 +112,17 @@ async function runSweep(request: Request) {
     // Allowlist de planes: el filtro de la consulta ya lo acota, pero lo que
     // decide degradar a FREE es esta comprobación, no una suposición.
     if (!isPaidPlanSlug(user.plan)) {
+      summary.skipped += 1
+      continue
+    }
+    // El plazo que manda es el del plan de ESTA fila. Un plan que ya no está en
+    // la tabla (o con una duración corrupta) cae al valor por defecto en vez de
+    // dejar al usuario con acceso indefinido.
+    const days = planDurations.get(user.plan) ?? DEFAULT_PLAN_DURATION_DAYS
+    const chargedAt = user.mpLastChargeAt?.getTime() ?? 0
+    if (chargedAt + days * 24 * 60 * 60 * 1000 > now) {
+      // Periodo todavía vigente: entró en la consulta por el plazo del plan más
+      // largo, pero el suyo no ha vencido.
       summary.skipped += 1
       continue
     }

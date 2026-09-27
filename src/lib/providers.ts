@@ -23,22 +23,20 @@ export function isProvider(value: unknown): value is Provider {
 }
 
 /*
- * Variables que cada proveedor necesita. Una entrada es "este nombre exacto" o
- * "al menos uno de estos" (los precios de Stripe/MP vienen por pares: solo
- * hace falta el del plan que se vaya a vender).
+ * Variables que cada proveedor necesita. Solo CREDENCIALES: los importes de los
+ * planes ya no están aquí (viven en la tabla `Plan` y los edita el admin en
+ * /admin/plans), así que un plan sin precio no es "proveedor sin configurar" sino
+ * un plan que ese proveedor no vende, que es otra cosa y se responde en el
+ * checkout con 503.
+ *
+ * Una entrada es "este nombre exacto" o "al menos uno de estos" (el segundo caso
+ * se reserve para pares, como un webhook con varias versiones del mismo evento).
  */
 type EnvRequirement = string | { anyOf: readonly string[] }
 
 const PROVIDER_ENV: Record<Provider, readonly EnvRequirement[]> = {
-  stripe: [
-    "STRIPE_SECRET_KEY",
-    { anyOf: ["STRIPE_PRICE_PRO", "STRIPE_PRICE_COLLECTOR"] },
-  ],
-  mp: [
-    "MP_ACCESS_TOKEN",
-    "MP_CURRENCY_ID",
-    { anyOf: ["MP_PRICE_PRO", "MP_PRICE_COLLECTOR"] },
-  ],
+  stripe: ["STRIPE_SECRET_KEY"],
+  mp: ["MP_ACCESS_TOKEN", "MP_CURRENCY_ID"],
 }
 
 function isEnvSatisfied(requirement: EnvRequirement): boolean {

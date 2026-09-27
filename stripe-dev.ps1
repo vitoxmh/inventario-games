@@ -78,13 +78,17 @@ if ($secret -match "^sk_(test|live)_") {
 }
 
 # La CLI 1.52+ exige declarar los eventos: sin esto aborta con
-# "must specify events to forward". Son exactamente los que atiende
-# src/app/api/stripe/webhook/route.ts.
+# "must specify events to forward". Deben ser EXACTAMENTE las claves del mapa
+# `handlers` de src/app/api/stripe/webhook/route.ts: un evento que aqui no este
+# no llega a la app, y el pago se queda sin registrar sin ningun error visible
+# (asi se perdio `invoice.paid`, que es el unico que escribe en `Payment`).
+# Si anades un handler al route.ts, anadelo aqui tambien.
 $events = @(
   "checkout.session.completed",
   "customer.subscription.updated",
   "customer.subscription.deleted",
-  "invoice.payment_failed"
+  "invoice.payment_failed",
+  "invoice.paid"
 ) -join ","
 
 Write-Host "Arrancando: stripe listen --forward-to localhost:3000/api/stripe/webhook" -ForegroundColor Cyan

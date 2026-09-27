@@ -37,16 +37,49 @@ enum GameStatus {
 }
 
 model Plan {
-  slug       String   @id
+  slug       String  @id
   nameEs     String
   nameEn     String
   gameLimit  Int?
-  imageLimit Int      @default(1)
-  paid       Boolean  @default(false)
-  active     Boolean  @default(true)
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  imageLimit Int     @default(1)
+  paid       Boolean @default(false)
+  active     Boolean @default(true)
+  sortOrder  Int     @default(0)
+
+  // ---- Precio (lo edita el admin en /admin/plans, no el entorno) ----
+  //
+  // Cada proveedor cobra en su propia moneda, así que hay un importe por
+  // proveedor. Los dos son enteros en la UNIDAD MENOR de su moneda: sin céntimos
+  // ni coma flotante, que es justo lo que MP acepta en `total_amount` y lo que
+  // Stripe acepta en `unit_amount`. `null` = ese proveedor no vende el plan, y el
+  // checkout responde 503 en vez de inventarse un importe.
+  //
+  // MP lo interpreta en la moneda de tu cuenta (MP_CURRENCY_ID), que en CLP no
+  // tiene parte decimal: 9990 son $9.990, no $99,90.
+  priceCents   Int?
+  mpPriceMinor Int?
+
+  // ---- Duración (la edita el admin en /admin/plans, no el código) ----
+  //
+  // Días de acceso que compra UN pago de este plan. Es el mismo dato para los dos
+  // proveedores porque es el mismo producto: en MP es el periodo pagado (lo ancla
+  // `mpLastChargeAt` y lo vence el barrido diario) y en Stripe es el periodo que
+  // se traduce al `recurring` de la suscripción.
+  //
+  // Un plan de pago con la duración a 0 o negativa no significaría nada (nadie
+  // cobra un periodo vacío), así que el mínimo es 1 día. Para el plan gratuito el
+  // valor da igual: no se cobra, no se renueva y no se vence.
+  durationDays Int @default(30)
+
+  // Id del Product de Stripe al que pertenece el precio. NO es un precio (no
+  // cambia cuando cambias el importe): es el contenedor del price_data inline, y
+  // hace falta porque Stripe exige un producto al que colgar el precio. Si está
+  // a null se genera un Product efímero con el nombre del plan, que funciona pero
+  // deja basura en el panel de Stripe, así que conviene rellenarlo una vez.
+  stripeProductId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([active, sortOrder])
 }
@@ -75,20 +108,20 @@ model PaymentProviderSetting {
 }
 
 model User {
-  id                   String               @id @default(cuid())
-  email                String               @unique
+  id                   String              @id @default(cuid())
+  email                String              @unique
   passwordHash         String?
   name                 String?
   imageUrl             String?
   emailVerifiedAt      DateTime?
-  role                 String               @default("user")
+  role                 String              @default("user")
   bannedAt             DateTime?
-  plan                 String               @default("FREE")
-  stripeCustomerId     String?              @unique
-  stripeSubscriptionId String?              @unique
+  plan                 String              @default("FREE")
+  stripeCustomerId     String?             @unique
+  stripeSubscriptionId String?             @unique
   subscriptionStatus   SubscriptionStatus?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   // Mercado Pago (Checkout Pro sobre Orders API, con redirección). El pago
   // ocurre en el-hosted checkout de MP y NO guarda tarjeta: no hay customer,
@@ -105,28 +138,25 @@ model User {
   sessions    Session[]
   accounts    Account[]
   mpCheckouts MpCheckout[]
+  payments    Payment[]
 
   @@index([mpLastChargeAt])
 }
 
-/*
+/**
  * Una order de Mercado Pago creada por el checkout, con su estado de liquidación.
- *
  * Existe por un motivo concreto: en MP no hay forma de LISTAR los pagos de un
  * usuario. `GET /v1/orders/search` responde 400 con el token que tenemos, y la
  * URL de retorno no trae el `order_id`, así que la única forma de volver a una
  * order es remembering su id. Sin esta tabla, un pago que el webhook no llegó a
  * resolver queda irrecuperable; con ella, `settleMpCheckout` puede repreguntar a
  * MP por cualquier order nuestra las veces que haga falta.
- *
  * `orderId` es el id que devuelve MP (`ORD...`) y es único: si MP devolviera un
  * id repetido, el `upsert` de la ruta de checkout no crearía una segunda fila.
- *
  * `plan` es el slug de la escalera (PRO/COLLECTOR) tal como se envió a MP en el
  * `external_reference`. Es `String` y no el enum `Plan` porque el plan vive en la
  * tabla `Plan` (CRUD del admin) y no en el enum; lo que decide es la allowlist
  * `PAID_PLANS` en código, nunca este valor por sí solo.
- *
  * `status` es el último desenlace conocido de la order, no el estado de la
  * suscripción del usuario (ese vive en `User.subscriptionStatus`). `pending`
  * significa "todavía sin resolver": es lo que la página de facturación liquida al
@@ -148,14 +178,69 @@ model MpCheckout {
   @@index([status, createdAt])
 }
 
+/**
+ * Un pago cobrado, de cualquier proveedor. Es el HISTORIAL que ve el usuario en
+ * `/app/billing`, y el único sitio donde se escribe dinero ya cobrado: ni la
+ * vuelta del usuario desde la return URL ni la liquidación de la página lo
+ * cuentan, solo el punto donde el pago se da por hecho (`settleMpCheckout` para
+ * MP, el evento `invoice.paid` de Stripe).
+ *
+ * No duplica a `MpCheckout`: aquella fila es la *order* (puede quedar `pending`,
+ * `dead` o `paid` y sirve para repreguntar a MP), y esta es el *cobro* (solo
+ * existe cuando el dinero está confirmado). Un plan pagado en Stripe no tiene
+ * fila en `MpCheckout` y al revés, así que el historial de los dos proveedores
+ * solo se puede guardar aquí.
+ *
+ * `externalId` es el id del recurso en el proveedor (el `ORD…` de MP, el
+ * `in_…` de la factura de Stripe) y es único POR PROVEEDOR: es lo que hace
+ * idempotente el `upsert` de `recordPayment`, porque los dos proveedores
+ * reenvían su notificación y MP además liquida la misma order otra vez cada vez
+ * que se abre la facturación. Un pago repetido actualiza la fila, no suma una.
+ *
+ * `plan` y `durationDays` son una FOTO del momento del pago, no una referencia:
+ * el historial tiene que seguir diciendo "Pro, 3 meses" aunque el admin renombre
+ * el plan o le cambie la duración mañana. Por eso no se lee el plan actual al
+ * pintar. Es `String` por el mismo motivo que `MpCheckout.plan`: el plan vive en
+ * la tabla `Plan` y lo que lo valida es la allowlist `PAID_PLANS` en código.
+ *
+ * `amountMinor` va en unidades MENORES de `currency` (999 = $9.99, 9990 = $9.990
+ * en CLP), igual que en `Plan` y que en lo que se manda a cada API: multiplicar
+ * por 100 es cosa del formateador (`src/lib/money.ts`).
+ *
+ * `status` es el desenlace del cobro, con la allowlist en
+ * `src/lib/payment-history.ts`. Hoy solo se registran pagos cobrados (`paid`),
+ * que es lo que significa "pago": un reembolso no lo genera la app (ni MP ni
+ * Stripe le avisan de algo que el usuario pueda pedir desde aquí) así que no se
+ * inventa un estado que nadie va a escribir.
+ */
+model Payment {
+  id           String          @id @default(cuid())
+  userId       String
+  provider     PaymentProvider
+  externalId   String
+  plan         String
+  amountMinor  Int
+  currency     String
+  durationDays Int
+  status       String          @default("paid")
+  paidAt       DateTime
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([userId, paidAt])
+}
+
 model Game {
-  id         String     @id @default(cuid())
-  userId     String
-  title      String
-  platformId String
-  genre      String?
-  status     GameStatus @default(OWNED)
-  condition  String?
+  id            String     @id @default(cuid())
+  userId        String
+  title         String
+  platformId    String
+  genre         String?
+  status        GameStatus @default(OWNED)
+  condition     String?
   purchasePrice Decimal?   @db.Decimal(10, 2)
   purchaseDate  DateTime?
   notes         String?
@@ -165,8 +250,8 @@ model Game {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform Platform   @relation(fields: [platformId], references: [id], onDelete: Restrict)
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform Platform    @relation(fields: [platformId], references: [id], onDelete: Restrict)
   images   GameImage[]
 
   @@index([userId])

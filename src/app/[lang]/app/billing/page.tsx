@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { lang } from "next/root-params"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { getPlan, listPlans, planFeatures, planName } from "@/lib/plans"
+import { getPlan, listPlans, planFeatures, planName, planPeriodLabel } from "@/lib/plans"
 import {
   activeProviderFor,
   formatPriceForProvider,
@@ -11,9 +11,14 @@ import {
   type Provider,
 } from "@/lib/billing"
 import { getAvailableProviders } from "@/lib/payment-providers"
-import { settlePendingMpCheckoutsForUser } from "@/lib/mp-settlement"
+import {
+  backfillMissingPaymentsForUser,
+  settlePendingMpCheckoutsForUser,
+} from "@/lib/mp-settlement"
+import { countUserPayments, listUserPayments } from "@/lib/payment-history"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { BillingClient, type BillingTier } from "@/components/billing/billing-client"
+import { PaymentHistory } from "@/components/billing/payment-history"
 
 export const dynamic = "force-dynamic"
 
@@ -44,9 +49,14 @@ export default async function BillingPage(
    * no hay nada que liquidar y no se llama a la API de MP. Un fallo aquí no puede
    * romper la página (la liquidación traga sus errores), y es idempotente: una vez
    * resuelta, la order deja de entrar en la consulta.
+   *
+   * Encima va la reparación del historial: los pagos que ya estaban liquidados
+   * cuando todavía no existía la tabla `Payment` y que, de no repararse, nunca
+   * volverían a pasar por aquí (el barrido de arriba solo mira `pending`).
    */
   if (userId) {
     await settlePendingMpCheckoutsForUser(userId)
+    await backfillMissingPaymentsForUser(userId)
   }
 
   const user = userId
@@ -62,14 +72,20 @@ export default async function BillingPage(
     : null
 
   const planSlug = user?.plan ?? "FREE"
-  const [count, imageCount, planRow, paidRows] = await Promise.all([
-    userId ? prisma.game.count({ where: { userId } }) : Promise.resolve(0),
-    userId
-      ? prisma.gameImage.count({ where: { game: { userId } } })
-      : Promise.resolve(0),
-    getPlan(planSlug),
-    listPlans({ activeOnly: true }),
-  ])
+  const [count, imageCount, planRow, paidRows, payments, paymentsTotal] =
+    await Promise.all([
+      userId ? prisma.game.count({ where: { userId } }) : Promise.resolve(0),
+      userId
+        ? prisma.gameImage.count({ where: { game: { userId } } })
+        : Promise.resolve(0),
+      getPlan(planSlug),
+      listPlans({ activeOnly: true }),
+      // Historial de pagos, ya liquidado lo que hubiera pendiente de MP: se pide
+      // DESPUÉS de `settlePendingMpCheckoutsForUser` para que un pago que se
+      // liquidó en esta misma visita ya aparezca en la lista.
+      userId ? listUserPayments(userId) : Promise.resolve([]),
+      userId ? countUserPayments(userId) : Promise.resolve(0),
+    ])
   const limit = planRow?.gameLimit ?? null
   const imageLimit = planRow?.imageLimit ?? 1
   // Medios de pago que se ofrecen: los que el admin tiene encendidos y tienen
@@ -107,13 +123,28 @@ export default async function BillingPage(
       {
         slug,
         name: planName(row, locale),
-        // Importe en la moneda de cada proveedor (MP cobra en CLP/ARS/MXN...).
-        // El cliente pinta el del proveedor elegido; si un proveedor no está
-        // configurado, su precio es `null` y no se muestra.
+        // Importe en la moneda de cada proveedor (MP cobra en CLP/ARS/MXN...),
+        // tomado de la fila del plan. El cliente pinta el del proveedor elegido;
+        // si un proveedor no tiene precio para ese plan, es `null` y no se
+        // muestra en vez de enseñar una cifra inventada.
         prices: {
-          stripe: formatPriceForProvider({ slug, provider: "stripe", locale }),
-          mp: formatPriceForProvider({ slug, provider: "mp", locale }),
+          stripe: formatPriceForProvider({
+            priceCents: row.priceCents,
+            mpPriceMinor: row.mpPriceMinor,
+            provider: "stripe",
+            locale,
+          }),
+          mp: formatPriceForProvider({
+            priceCents: row.priceCents,
+            mpPriceMinor: row.mpPriceMinor,
+            provider: "mp",
+            locale,
+          }),
         },
+        // Sufijo del precio: el periodo real del plan (lo edita el admin en
+        // /admin/plans), no un "/mes" fijo que mentía en cuanto un plan no era
+        // mensual.
+        period: planPeriodLabel(row, dict.pricing, locale),
         features: planFeatures(row, dict.pricing),
         action: isCurrent
           ? ("current" as const)
@@ -134,21 +165,44 @@ export default async function BillingPage(
 
   const planLabel = planRow ? planName(planRow, locale) : planSlug
 
+  /*
+   * Nombre de cada plan para el historial. El pago guarda el SLUG (el único dato
+   * estable) y el nombre se resuelve con la fila de hoy: si el admin renombra un
+   * plan, las filas antiguas se pintan con el nombre nuevo, que es lo que el
+   * usuario conoce. Un plan que ya no existe cae al slug en vez de romper la
+   * página.
+   */
+  const planNames = Object.fromEntries(
+    paidRows.map((row) => [row.slug, planName(row, locale)]),
+  )
+
   return (
-    <BillingClient
-      dict={dict.billing}
-      pricing={dict.pricing}
-      planName={planLabel}
-      subscriptionStatus={user?.subscriptionStatus ?? null}
-      count={count}
-      limit={limit}
-      imageCount={imageCount}
-      imageLimit={imageLimit}
-      tiers={tiers}
-      providers={isSignedIn ? providers : []}
-      activeProvider={activeProvider}
-      locale={locale}
-      checkout={checkout}
-    />
+    <div className="flex flex-col gap-8">
+      <BillingClient
+        dict={dict.billing}
+        planName={planLabel}
+        subscriptionStatus={user?.subscriptionStatus ?? null}
+        count={count}
+        limit={limit}
+        imageCount={imageCount}
+        imageLimit={imageLimit}
+        tiers={tiers}
+        providers={isSignedIn ? providers : []}
+        activeProvider={activeProvider}
+        locale={locale}
+        checkout={checkout}
+      />
+
+      {isSignedIn && (
+        <PaymentHistory
+          payments={payments}
+          planNames={planNames}
+          dict={dict.billing}
+          pricing={dict.pricing}
+          locale={locale}
+          total={paymentsTotal}
+        />
+      )}
+    </div>
   )
 }

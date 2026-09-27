@@ -2,6 +2,11 @@ import type { Metadata } from "next"
 import { prisma } from "@/lib/db"
 import { AdminPlansClient } from "@/components/admin/admin-plans-client"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
+import { mpCurrencyId } from "@/lib/mp"
+import {
+  MAX_PLAN_DURATION_DAYS,
+  MIN_PLAN_DURATION_DAYS,
+} from "@/lib/plans"
 
 export const metadata: Metadata = {
   title: "Planes",
@@ -25,6 +30,10 @@ export default async function AdminPlansPage() {
         paid: true,
         active: true,
         sortOrder: true,
+        priceCents: true,
+        mpPriceMinor: true,
+        stripeProductId: true,
+        durationDays: true,
       },
     }),
     prisma.user.groupBy({ by: ["plan"], _count: { _all: true } }),
@@ -39,6 +48,15 @@ export default async function AdminPlansPage() {
         userCount: usersByPlan.get(plan.slug) ?? 0,
       }))}
       dict={dict.admin}
+      // El cliente es un componente de cliente y no puede leer el entorno: la
+      // moneda de MP se resuelve aquí y se le pasa ya normalizada. El rango
+      // válido de la duración viene del mismo módulo que valida la API, para que
+      // el `min`/`max` del input no sea una copia que se pueda quedar vieja.
+      mpCurrency={mpCurrencyId()}
+      durationRange={{
+        min: MIN_PLAN_DURATION_DAYS,
+        max: MAX_PLAN_DURATION_DAYS,
+      }}
     />
   )
 }

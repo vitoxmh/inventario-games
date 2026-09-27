@@ -10,14 +10,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { planPriceCents } from "@/lib/billing"
-import { planFeatures, planName, type PlanRow, type Locale } from "@/lib/plans"
+import {
+  planFeatures,
+  planName,
+  planPeriodLabel,
+  type PlanRow,
+  type Locale,
+} from "@/lib/plans"
 import type { Dictionary } from "@/messages/es"
 
 export type PricingCard = {
   slug: string
   name: string
   price: string
+  /** Sufijo del precio ("/mes", "/90 días"): el periodo real del plan. */
+  period: string
   features: string[]
   /**
    * Qué botón lleva esta tarjeta. Lo decide el SERVIDOR (que sabe si hay
@@ -40,15 +47,26 @@ export function buildPricingCards(args: {
 }): PricingCard[] {
   const { plans, pricing, locale, currentPlan = null } = args
   return plans.map((plan) => {
-    const priceCents = planPriceCents(plan.slug)
+    /*
+     * El precio sale de la fila del plan (lo edita el admin en /admin/plans), no
+     * de una constante ni del entorno. Aquí se pinta el de Stripe, que es la
+     * referencia worldwide; la página de facturación, que ya sabe qué proveedor
+     * va a usar cada uno, pinta el importe en la moneda de ese proveedor.
+     *
+     * Un plan de pago sin precio NO se pinta como "$0": no se está regalando,
+     * sencillamente aún no tiene precio configurado, y decirlo es lo honesto.
+     */
     const price =
-      priceCents === null
-        ? pricing.priceFree
-        : `$${(priceCents / 100).toFixed(2)}`
+      plan.priceCents === null || plan.priceCents <= 0
+        ? plan.paid
+          ? pricing.priceUnavailable
+          : pricing.priceFree
+        : `$${(plan.priceCents / 100).toFixed(2)}`
     return {
       slug: plan.slug,
       name: planName(plan, locale),
       price,
+      period: planPeriodLabel(plan, pricing, locale),
       features: planFeatures(plan, pricing),
       action: !currentPlan
         ? ("signup" as const)
@@ -113,7 +131,7 @@ export function PricingCards({
                   {plan.price}
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  {pricing.monthly}
+                  {plan.period}
                 </span>
               </div>
               <ul className="space-y-3 text-sm">

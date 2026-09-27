@@ -5,12 +5,22 @@ import {
   stripe,
   type StripeSubscriptionStatus,
 } from "@/lib/stripe"
-import { priceIdForPlan, planFromPriceId, type PaidPlan } from "@/lib/billing"
 import {
-  MP_BILLING_PERIOD_DAYS,
+  planFromSubscriptionMetadata,
+  type PaidPlan,
+} from "@/lib/billing"
+import {
+  getPlan,
+  getPlanDurationDays,
+  getPlanPrice,
+  getPlanStripeProduct,
+  planDurationDaysOf,
+  type PlanRow,
+} from "@/lib/plans"
+import {
   createMpCheckoutOrder,
+  formatMpAmount,
   isMpConfigured,
-  mpAmountForPlan,
   mpCheckoutBlocker,
 } from "@/lib/mp"
 
@@ -122,13 +132,23 @@ async function liveStripeSubscription(
 }
 
 /**
- * Verdad de la suscripción según Stripe, para sincronizar la fila local. El
- * plan sale del price id real (nunca del cliente) y los campos que no se pueden
- * derivar se omiten en vez de mandarse a null, porque `plan` no admite null.
+ * Verdad de la suscripción según Stripe, para sincronizar la fila local. El plan
+ * sale de la metadata de la suscripción (escrita por el servidor, y validada
+ * contra la allowlist) y los campos que no se pueden derivar se omiten en vez de
+ * mandarse a null, porque `plan` no admite null.
  */
+/**
+ * Id de un campo expandible de Stripe: sin `expand` llega como string, y con
+ * `expand` como objeto. Stripe no lo unifica, y esto es lo que evita el
+ * `Type 'string | Product' is not assignable to type 'string'`.
+ */
+function stringIdOf(value: string | { id: string } | null | undefined) {
+  if (!value) return null
+  return typeof value === "string" ? value : value.id
+}
+
 function syncFromStripeSub(sub: Stripe.Subscription): BillingSync {
-  const priceId = sub.items?.data?.[0]?.price?.id
-  const plan = priceId ? planFromPriceId(priceId) : null
+  const plan = planFromSubscriptionMetadata(sub.metadata)
   const status = mapStripeStatus(sub.status)
   return {
     ...(plan ? { plan } : {}),
@@ -137,17 +157,94 @@ function syncFromStripeSub(sub: Stripe.Subscription): BillingSync {
   }
 }
 
+/**
+ * `recurring` de Stripe a partir de los días del plan (lo edita el admin en
+ * /admin/plans).
+ *
+ * Stripe no tiene "cada N días": cobra cada `interval_count` `interval`. Se
+ * traduce la duración a la unidad más grande que la divide EXACTA, para que un
+ * plan de 90 días sea 3 meses y no 12 semanas y medio. Cuando los días no caen
+ * en ninguna unidad exacta (45 días) se cobra cada 45 días, que es lo que el
+ * admin pidió, en vez de aproximarlo a un mes y mentirle con la factura.
+ *
+ * El rango de la duración (1..1095 días) lo valida `src/lib/plans.ts` con el
+ * mismo módulo que el resto, y su máximo es justamente el tope de periodo de
+ * Stripe (tres años), así que el `interval_count` que sale de aquí nunca excede lo
+ * que la API acepta.
+ */
+function stripeRecurring(days: number): {
+  interval: StripeInterval
+  interval_count: number
+} {
+  const unit = stripeIntervalUnit(days)
+  const unitDays = { year: 365, month: 30, week: 7, day: 1 }[unit]
+  return {
+    interval: unit,
+    interval_count: Math.max(1, Math.floor(days / unitDays)),
+  }
+}
+
+/** Unidad de Stripe que divide exactamente la duración (la más grande posible). */
+type StripeInterval = "day" | "week" | "month" | "year"
+
+function stripeIntervalUnit(days: number): StripeInterval {
+  if (days % 365 === 0) return "year"
+  if (days % 30 === 0) return "month"
+  if (days % 7 === 0) return "week"
+  return "day"
+}
+
+/**
+ * `price_data` inline del checkout: el importe sale de la fila `Plan` y se lo
+ * mandamos a Stripe en la propia sesión, así que no hay ningún Price object ni
+ * ninguna variable de entorno de por medio. Cada compra genera un Price propio
+ * (los Prices son inmutables y no se pueden reutilizar con otro importe), que es
+ * el precio de que el precio se administre desde el panel.
+ *
+ * `product` es obligatorio en Stripe: sin él se genera un Product efímero con el
+ * nombre del plan, que funciona pero deja Products basura en el panel, así que
+ * el admin lo rellena una vez en `Plan.stripeProductId`.
+ */
+function stripeLineItem(args: {
+  productId: string | null
+  name: string
+  unitAmount: number
+  /** Días del plan: el periodo con el que se cobra la suscripción. */
+  durationDays: number
+}): Stripe.Checkout.SessionCreateParams.LineItem {
+  return {
+    quantity: 1,
+    price_data: {
+      currency: "usd",
+      unit_amount: args.unitAmount,
+      recurring: stripeRecurring(args.durationDays),
+      ...(args.productId
+        ? { product: args.productId }
+        : { product_data: { name: args.name } }),
+    },
+  }
+}
+
 async function stripeCheckoutUrl(args: {
+
   user: BillingUser
   plan: PaidPlan
   billingUrl: string
   locale: "es" | "en"
 }): Promise<CheckoutResult> {
-  const priceId = priceIdForPlan(args.plan)
-  if (!priceId) throw new BillingError("plan_unavailable", 503)
   if (!stripe) throw new BillingError("stripe_not_configured", 503)
+  // El importe se lee de la fila del plan, nunca del cuerpo de la petición: el
+  // `plan` llega del cliente pero ya validado contra `PAID_PLANS`. Si el admin
+  // desactivó el plan o le dejó el precio a null, no se vende.
+  const unitAmount = await getPlanPrice(args.plan, "stripe")
+  if (unitAmount === null) throw new BillingError("plan_unavailable", 503)
+  const product = await getPlanStripeProduct(args.plan)
+  if (!product) throw new BillingError("plan_unavailable", 503)
+  // El periodo de la suscripción sale de la fila del plan, como el importe.
+  const durationDays = await getPlanDurationDays(args.plan)
 
   let customerId = args.user.stripeCustomerId
+
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: args.user.email,
@@ -185,8 +282,25 @@ async function stripeCheckoutUrl(args: {
   const checkout = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: [
+      stripeLineItem({
+        productId: product.productId,
+        name: product.name,
+        unitAmount,
+        durationDays,
+      }),
+    ],
     metadata: { userId: args.user.id, plan: args.plan },
+    /*
+     * El plan va TAMBIÉN en la metadata de la suscripción, y no solo en la de la
+     * sesión: es de la suscripción de donde lo lee el webhook para conceder el
+     * plan, y no es algo en lo que se pueda apoyar que Stripe copie una en otra
+     * (aquí no ocurre: la suscripción que había en la cuenta de pruebas tiene
+     * `metadata: {}`).
+     */
+    subscription_data: {
+      metadata: { userId: args.user.id, plan: args.plan },
+    },
     success_url: `${args.billingUrl}?checkout=success`,
     cancel_url: `${args.billingUrl}?checkout=canceled`,
     locale: args.locale,
@@ -208,10 +322,11 @@ async function stripeCheckoutUrl(args: {
  * cuenta, Rapipago, Pago Fácil o cuotas sin tarjeta) y MP lo devuelve a
  * `billingUrl`, que es la misma URL de los tres desenlaces.
  *
- * A diferencia de Stripe, aquí no hay "alta" ni "suscripción": cada pago da
- * `MP_BILLING_PERIOD_DAYS` de acceso y el siguiente ciclo vuelve a pasar por
- * aquí. Por eso no se bloquea el checkout cuando el usuario ya está ACTIVE: eso
- * es exactamente lo que hace un usuario renovando.
+ * A diferencia de Stripe, aquí no hay "alta" ni "suscripción": cada pago da los
+ * `durationDays` del plan (lo edita el admin en /admin/plans) de acceso y el
+ * siguiente ciclo vuelve a pasar por aquí. Por eso no se bloquea el checkout
+ * cuando el usuario ya está ACTIVE: eso es exactamente lo que hace un usuario
+ * renovando.
  */
 async function mpCheckoutUrl(args: {
   user: BillingUser
@@ -227,14 +342,28 @@ async function mpCheckoutUrl(args: {
     throw new BillingError("mp_not_configured", 503)
   }
 
-  const amount = mpAmountForPlan(args.plan)
+  // La fila del plan: de aquí salen el importe y el título del producto, y nunca
+  // del cuerpo de la petición.
+  const plan = await getPlan(args.plan)
+  if (!plan) throw new BillingError("plan_unavailable", 503)
+  const durationDays = planDurationDaysOf(plan.durationDays)
+
+  // El importe sale de la fila del plan (nunca del cuerpo de la petición) y
+  // `formatMpAmount` solo lo formatea con los decimales que admite la moneda de
+  // la cuenta. Sin precio para MP, el plan no se vende por aquí.
+  const minor = await getPlanPrice(args.plan, "mp")
+  const amount = minor === null ? null : formatMpAmount(minor)
   if (!amount) throw new BillingError("plan_unavailable", 503)
 
   /*
    * While the paid period is alive, no new order opens: paying twice in a row
-   * would be paying for two months. It is a soft guard (409), not a redirect to
+   * would be paying for two periods. It is a soft guard (409), not a redirect to
    * a portal, because MP has no portal: the user simply renews when the period
    * runs out.
+   *
+   * El periodo que se comprueba es el del plan que el usuario tiene AHORA (el que
+   * pagó), no el del plan que intenta comprar: si renueva antes de tiempo, el plan
+   * nuevo se paga cuando el actual caduque.
    *
    * Honest limit: `mpLastChargeAt` is written by the `order` webhook, so this
    * still depends on the webhook being reachable. Unlike Stripe, here the state
@@ -245,7 +374,8 @@ async function mpCheckoutUrl(args: {
    */
   const chargedAt = args.user.mpLastChargeAt
   if (chargedAt) {
-    const periodMs = MP_BILLING_PERIOD_DAYS * 24 * 60 * 60 * 1000
+    const currentDays = await getPlanDurationDays(args.user.plan)
+    const periodMs = currentDays * 24 * 60 * 60 * 1000
     if (chargedAt.getTime() + periodMs > Date.now()) {
       throw new BillingError("mp_period_active", 409)
     }
@@ -255,7 +385,7 @@ async function mpCheckoutUrl(args: {
     plan: args.plan,
     amount,
     userId: args.user.id,
-    title: MP_ITEM_TITLES[args.plan],
+    title: mpItemTitle(plan, durationDays),
     returnUrl: args.billingUrl,
   })
 
@@ -269,10 +399,17 @@ async function mpCheckoutUrl(args: {
   return { url: checkoutUrl, kind: "checkout", mpOrder: { orderId, amount } }
 }
 
-/** Nombre del producto que ve el usuario en la página de MP. */
-const MP_ITEM_TITLES: Record<PaidPlan, string> = {
-  PRO: "GameVault PRO (30 días)",
-  COLLECTOR: "GameVault COLLECTOR (30 días)",
+/**
+ * Nombre del producto que ve el pagador en la página de MP: el nombre del plan y
+ * su duración, los dos de la fila que edita el admin en /admin/plans.
+ *
+ * Antes era un mapa hardcodeado por plan ("PRO (30 días)"), que se quedaba viejo
+ * en cuanto el admin cambiaba el nombre o la duración, y obligaba a tocar el
+ * código para renombrar un producto. Se usa `nameEs` porque es el idioma del
+ * texto de MP en este modelo (y lo que ya se pintaba).
+ */
+function mpItemTitle(plan: PlanRow, durationDays: number): string {
+  return `GameVault ${plan.nameEs || plan.slug} (${durationDays} días)`
 }
 
 export async function checkoutUrl(args: {
@@ -312,27 +449,63 @@ async function stripeUpgradePlan(args: {
   user: BillingUser
   plan: PaidPlan
 }): Promise<UpgradeResult> {
-  const priceId = priceIdForPlan(args.plan)
-  if (!priceId) throw new BillingError("plan_unavailable", 503)
   if (!stripe) throw new BillingError("stripe_not_configured", 503)
   if (!args.user.stripeSubscriptionId) {
     throw new BillingError("no_active_subscription", 409)
   }
+  const unitAmount = await getPlanPrice(args.plan, "stripe")
+  if (unitAmount === null) throw new BillingError("plan_unavailable", 503)
+  const product = await getPlanStripeProduct(args.plan)
+  if (!product) throw new BillingError("plan_unavailable", 503)
+  // El periodo de la suscripción sale de la fila del plan, como el importe.
+  const durationDays = await getPlanDurationDays(args.plan)
 
   const current = await stripe.subscriptions.retrieve(
     args.user.stripeSubscriptionId,
   )
   const item = current.items?.data?.[0]
   if (!item) throw new BillingError("subscription_not_updatable", 409)
-  if (planFromPriceId(item.price?.id) === args.plan) {
+  if (planFromSubscriptionMetadata(current.metadata) === args.plan) {
     throw new BillingError("already_active", 409)
+  }
+
+  /*
+   * A diferencia del checkout, aquí `price_data.product` es OBLIGATORIO y no
+   * admite `product_data`: no hay un producto efímero que inventar. Se usa el que
+   * declara el plan y, si el admin aún no lo ha rellenado, el producto del Price
+   * que la suscripción ya tiene — que es un producto que la cuenta ya posee y que
+   * además es el correcto: la suscripción se queda en su producto y solo cambia
+   * el importe.
+   */
+  const productId = product.productId ?? stringIdOf(item.price?.product)
+  if (!productId) throw new BillingError("plan_unavailable", 503)
+
+  const priceData: Stripe.SubscriptionItemUpdateParams.PriceData = {
+    currency: "usd",
+    product: productId,
+    unit_amount: unitAmount,
+    /*
+     * El periodo del item pasa a ser el del plan nuevo, no el que tuviera la
+     * suscripción: cambiar de plan es cambiar de producto, y si el admin ha
+     * redefinido la duración (de 30 a 90 días) la factura siguiente tiene que
+     * respetarla. Es el mismo `recurring` que genera el checkout, para que
+     * "suscribirse" y "mejorar" no puedan cobrar periodos distintos.
+     */
+    recurring: stripeRecurring(durationDays),
   }
 
   let updated
   try {
     updated = await stripe.subscriptions.update(args.user.stripeSubscriptionId, {
-      items: [{ id: item.id, price: priceId, quantity: 1 }],
+      items: [{ id: item.id, quantity: 1, price_data: priceData }],
       proration_behavior: "always_invoice",
+      /*
+       * El plan viaja en la metadata de la suscripción, así que al mejorarla hay
+       * que actualizarla en el MISMO update. Si no, el `customer.subscription.updated`
+       * que dispara este cambio leería el plan viejo y dejaría al usuario en el
+       * plan anterior con la factura ya cobrada.
+       */
+      metadata: { userId: args.user.id, plan: args.plan },
     })
   } catch (error) {
     // El detalle (motivo del rechazo, código de tarjeta) solo a consola.
@@ -343,11 +516,11 @@ async function stripeUpgradePlan(args: {
     throw new BillingError("subscription_not_updatable", 409)
   }
 
-  // El plan se relee del price REAL devuelto por Stripe (autoritativo) y no
+  // El plan se relee de la metadata REAL devuelta por Stripe (autoritativo) y no
   // del slug que nos pidieron: es el mismo criterio que usa el webhook.
-  const confirmed = planFromPriceId(updated.items?.data?.[0]?.price?.id)
+  const confirmed = planFromSubscriptionMetadata(updated.metadata)
   if (!confirmed) {
-    console.error("[payments:upgrade] price inesperado tras el upgrade")
+    console.error("[payments:upgrade] metadata sin plan tras el upgrade")
     throw new BillingError("unknown", 500)
   }
   return {

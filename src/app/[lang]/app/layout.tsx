@@ -30,23 +30,28 @@ export default async function AppLayout({
   ]
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6">
-      <nav className="mb-8 flex flex-wrap gap-2">
-        {links.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "inline-flex items-center gap-1.5",
-            )}
-          >
-            <Icon className="size-4" aria-hidden="true" />
-            {label}
-          </Link>
-        ))}
-      </nav>
-      {children}
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 md:grid md:grid-cols-[15rem_minmax(0,1fr)] md:items-start md:gap-8">
+      <aside className="mb-6 md:sticky md:top-8 md:mb-0">
+        <nav
+          aria-label={dict.app.navLabel}
+          className="flex flex-col items-stretch gap-1"
+        >
+          {links.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "inline-flex items-center justify-start gap-2",
+              )}
+            >
+              <Icon className="size-4" aria-hidden="true" />
+              {label}
+            </Link>
+          ))}
+        </nav>
+      </aside>
+      <div className="min-w-0">{children}</div>
     </div>
   )
 }

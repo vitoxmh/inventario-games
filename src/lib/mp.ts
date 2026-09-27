@@ -1,4 +1,5 @@
 import "server-only"
+import { formatMinorAmount } from "@/lib/money"
 import {
   InvalidWebhookSignatureError,
   MercadoPagoConfig,
@@ -23,16 +24,18 @@ import { isProviderConfigured } from "@/lib/providers"
  *    Form (Brick) ni se abre la CSP para `sdk.mercadopago.com`.
  *  - MP no agenda cobros. Cada ciclo el usuario vuelve a pagar, y el periodo
  *    pagado se ancla en `mpLastChargeAt`. El barrido diario (`/api/mp/expire`)
- *    degrada a FREE a quien lo tenga vencido.
+ *    degrada a FREE a quien lo tenga vencido, usando los `Plan.durationDays` que
+ *    edita el admin (antes venía de una constante del código).
  *  - El modelo alternativo de la doc (Automatic Payments: customer + payment
  *    profile + `processing_mode: "automatic_async"` para cobrar la tarjeta
  *    guardada) queda descartado a propósito: exige autorización comercial del
  *    equipo de Ventas de MP, así que no es autoservicio.
  *
  * Dos normas que no se negocian:
- *  - El importe SIEMPRE sale de `MP_PRICE_*` (nunca del cliente) y el plan nunca
- *    se deriva de la entrada del usuario: el `external_reference` que manda MP
- *    se contrasta contra el plan de la escalera antes de tocar la BD.
+ *  - El importe SIEMPRE sale de la fila `Plan` (`mpPriceMinor`, lo edita el admin
+ *    en /admin/plans), nunca del cliente ni del entorno, y el plan nunca se deriva
+ *    de la entrada del usuario: el `external_reference` que manda MP se contrasta
+ *    contra el plan de la escalera antes de tocar la BD.
  *  - Las notificaciones nunca son la fuente de verdad: se verifica la firma y
  *    luego se pregunta a la API por el estado real (ver `src/app/api/mp/webhook`).
  *    Igual con la vuelta del usuario: los query params de la return URL solo
@@ -49,9 +52,6 @@ export type MpPlan = PaidPlan
  * lo publica y en la app no hay ninguna ruta de importación interna ajena.
  */
 export type MpOrder = Awaited<ReturnType<Order["get"]>>
-
-/** Días de acceso que compra cada pago. Los planes son mensuales. */
-export const MP_BILLING_PERIOD_DAYS = 30
 
 /**
  * Ventana de antigüedad que se acepta en la marca de tiempo de la firma de un
@@ -95,7 +95,8 @@ function mpOrder(): Order | null {
 /**
  * Moneda en la que MP cobra. MP NUNCA cobra en USD: cada sitio (MLC, MLA,
  * MLM, MCO...) tiene la suya, así que el importe que se muestra al usuario tiene
- * que ser el de esta, no el precio en USD de `PLAN_META`.
+ * que ser el de esta, no el `priceCents` de USD que cobra Stripe. Es el dato que
+ * dice cuántos decimales tiene `mpPriceMinor`.
  *
  * Se valida el formato porque el valor acaba en
  * `new Intl.NumberFormat({ currency })`, y una moneda inválida lanza
@@ -107,29 +108,15 @@ export function mpCurrencyId(): string | null {
 }
 
 /**
- * Monedas sin parte decimal. En ellas MP rechaza el importe con decimales: con
- * CLP, mandar `9990.00` devuelve 400 `property_value` ("does not match pattern")
- * en `total_amount` y en `items[0].unit_price`; hay que mandar `9990`.
+ * Importe de un plan tal como lo espera la API de MP, a partir del entero que
+ * hay en la fila `Plan` (`mpPriceMinor`).
+ *
+ * El formateo (y la lista de monedas sin decimales) viven en `@/lib/money`, que
+ * es client-safe y usa también el panel de admin: el número sale de la BD, nunca
+ * de `MP_PRICE_*` ni del cliente.
  */
-const ZERO_DECIMAL_CURRENCIES = new Set([
-  "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "PYG", "RWF",
-  "UGX", "UYI", "UYW", "VND", "VUV", "XAF", "XOF", "XPF",
-])
-
-/**
- * Importe del plan como lo espera la API de MP. Sale SIEMPRE de `MP_PRICE_*`
- * (nunca del cliente) y se formatea con los decimales que la moneda admite.
- */
-export function mpAmountForPlan(plan: MpPlan): string | null {
-  const envKey = plan === "PRO" ? "MP_PRICE_PRO" : "MP_PRICE_COLLECTOR"
-  const raw = process.env[envKey]
-  if (!raw) return null
-  const value = Number(raw)
-  if (!Number.isFinite(value) || value <= 0) return null
-  const currency = mpCurrencyId()
-  return currency && ZERO_DECIMAL_CURRENCIES.has(currency)
-    ? String(Math.round(value))
-    : value.toFixed(2)
+export function formatMpAmount(minor: number): string | null {
+  return formatMinorAmount(minor, mpCurrencyId())
 }
 
 /**
@@ -366,6 +353,52 @@ export function mpOrderOutcome(order: MpOrder): MpPaymentOutcome {
   const paid = toNumber(order.total_paid_amount)
   if (total <= 0) return "unknown"
   return paid + 1e-9 >= total ? "paid" : "pending"
+}
+
+/**
+ * Importe cobrado por una order, en unidades MENORES de la moneda de la cuenta.
+ *
+ * Lo manda MP como CADENA decimal (`"9990.00"`), y el entero sin coma es lo que
+ * espera `total_amount` de la API y lo que guarda `Plan.mpPriceMinor`. Se usa
+ * el TOTAL de la order y no `total_paid_amount` porque es lo que se pidió el
+ * cobro: en una order con un pago parcial el total es lo que el usuario iba a
+ * pagar y el historial tiene que enseñar lo que se le cobró de verdad. Si MP
+ * devolviera algo que no es un entero de unidades menores (por ejemplo ya
+ * dividido entre 100), se devuelve 0 y `recordPayment` descarta la fila en vez
+ * de guardar una cantidad inventada.
+ */
+export function mpAmountMinorOf(order: MpOrder): number {
+  const raw = String(order.total_amount ?? "").trim()
+  if (!raw) return 0
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value <= 0) return 0
+  const minor = Math.round(value)
+  // `9990.5` no es un entero de unidades menores: es un dato que no encaja en el
+  // modelo (que es entero) y subirlo a 9991 sería inventarse un cobro.
+  return Math.abs(value - minor) < 1e-6 ? minor : 0
+}
+
+/**
+ * Moneda de la cuenta de MP (la de `MP_CURRENCY_ID`), en MAYÚSCULAS.
+ *
+ * Es la que se le enseñó al usuario al comprar y la que manda la API. Se exporta
+ * aparte porque hay un camino que no tiene una order delante (la reparación de
+ * pagos ya liquidados), y ese no puede inventarse la moneda.
+ */
+export function mpAccountCurrency(): string {
+  return (process.env.MP_CURRENCY_ID ?? "").trim().toUpperCase()
+}
+
+/**
+ * Moneda de la order. Se prefiere la que devuelve MP (`currency`) y se cae a
+ * `mpAccountCurrency()` si no viene, porque la cuenta tiene una sola y es lo que
+ * se le enseñó al usuario al comprar. Se devuelve en MAYÚSCULAS porque es como
+ * la quieren `Intl` y el validador de `recordPayment`.
+ */
+export function mpCurrencyOf(order: MpOrder): string {
+  const fromOrder = String(order.currency ?? "").trim().toUpperCase()
+  if (/^[A-Z]{3}$/.test(fromOrder)) return fromOrder
+  return mpAccountCurrency()
 }
 
 // ---------------------------------------------------------------------------

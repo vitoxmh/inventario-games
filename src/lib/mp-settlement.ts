@@ -3,11 +3,16 @@ import { prisma } from "@/lib/db"
 import {
   getMpOrder,
   isValidMpOrderId,
+  mpAccountCurrency,
+  mpAmountMinorOf,
+  mpCurrencyOf,
   mpOrderOutcome,
   parseMpExternalReference,
   type MpPaymentOutcome,
 } from "@/lib/mp"
 import { isPaidPlanSlug, TIER_RANK, type PaidPlan } from "@/lib/billing"
+import { recordPayment } from "@/lib/payment-history"
+import { getPlanDurationDays } from "@/lib/plans"
 
 /*
  * Liquidación de las orders de Mercado Pago: el ÚNICO sitio donde se decide si un
@@ -124,6 +129,26 @@ export async function settleMpCheckout(
       },
     })
     await markResolved(orderId, "paid")
+    /*
+     * Historical de pagos, desde aquí y no desde el webhook: esta es la única
+     * función por la que pasa un pago de MP realmente cobrado, y la llaman las dos
+     * entradas (notificación y página). Se registra después de conceder el plan
+     * para que un fallo al escribir la fila no deje al usuario sin lo que pagó:
+     * `recordPayment` se traga sus errores y, como el `upsert` es idempotente por
+     * order, el siguiente intento (o la próxima visita a la facturación) la deja
+     * bien sin duplicarla.
+     */
+    const durationDays = await getPlanDurationDays(plan)
+    await recordPayment({
+      userId: user.id,
+      provider: "mp",
+      externalId: orderId,
+      plan,
+      amountMinor: mpAmountMinorOf(order),
+      currency: mpCurrencyOf(order),
+      durationDays,
+      paidAt: new Date(),
+    })
     return { outcome: renewed ? "renewed" : "granted", plan }
   }
 
@@ -194,6 +219,79 @@ export async function settlePendingMpCheckoutsForUser(
     }),
   )
   return results
+}
+
+/**
+ * Registra en el historial los pagos de MP que ya estaban liquidados y aún no
+ * tienen fila: los que se pagaron antes de que existiera la tabla `Payment`.
+ *
+ * Es una reparación, no un camino normal. Se apoya en que `status: "paid"` en
+ * `MpCheckout` no lo pone esta app sino `settleMpCheckout`, y solo después de
+ * que la API de MP confirmara el cobro; el importe es el mismo que se guardó al
+ * crear la order. No llama a MP (para eso está el sweep de pendientes) ni cambia
+ * el plan del usuario: solo escribe filas que ya son un hecho.
+ *
+ * Sin esto, un pago real se perdería del historial para siempre: el sweep solo
+ * mira orders `pending`, así que una order ya resuelta nunca vuelve a pasar por
+ * `settleMpCheckout`. Va por el mismo `recordPayment` (y por tanto el mismo
+ * `upsert` idempotente) que el camino normal, con lo que llamarlo dos veces no
+ * duplica nada.
+ *
+ * Los pagos de Stripe anteriores a la tabla no se reparan: aquí no queda copia de
+ * las facturas, y pedirle a Stripe las facturas de un año cada vez que se abre la
+ * facturación no es una reparación sino una factura por visita.
+ */
+export async function backfillMissingPaymentsForUser(
+  userId: string,
+): Promise<number> {
+  if (!userId) return 0
+  // No hay relación entre `MpCheckout` y `Payment` (el pago se identifica por
+  // proveedor + id de order, que es única en los dos sitios pero no es la clave de
+  // ninguna), así que el cruce se hace en memoria: las dos consultas van
+  // filtradas por el usuario de la sesión y son cortas.
+  let paid: { orderId: string; plan: string; amount: string; resolvedAt: Date | null }[]
+  let registered: { externalId: string }[]
+  try {
+    ;[paid, registered] = await Promise.all([
+      prisma.mpCheckout.findMany({
+        where: { userId, status: "paid" },
+        select: { orderId: true, plan: true, amount: true, resolvedAt: true },
+        orderBy: { createdAt: "desc" },
+        take: PENDING_BATCH,
+      }),
+      prisma.payment.findMany({
+        where: { userId, provider: "mp" },
+        select: { externalId: true },
+      }),
+    ])
+  } catch (error) {
+    console.error("[mp:settle] no se pudieron leer los pagos a reparar:", error)
+    return 0
+  }
+
+  const alreadyRecorded = new Set(registered.map((row) => row.externalId))
+  const currency = mpAccountCurrency()
+  let recorded = 0
+  for (const row of paid) {
+    if (alreadyRecorded.has(row.orderId)) continue
+    // El mismo criterio que `mpAmountMinorOf`: unidades MENORES enteras, y si el
+    // dato no encaja en el modelo se descarta en vez de redondear.
+    const amountMinor = Number(row.amount)
+    if (!Number.isInteger(amountMinor) || amountMinor <= 0) continue
+    const durationDays = await getPlanDurationDays(row.plan)
+    const ok = await recordPayment({
+      userId,
+      provider: "mp",
+      externalId: row.orderId,
+      plan: row.plan,
+      amountMinor,
+      currency,
+      durationDays,
+      paidAt: row.resolvedAt ?? new Date(),
+    })
+    if (ok) recorded += 1
+  }
+  return recorded
 }
 
 /**

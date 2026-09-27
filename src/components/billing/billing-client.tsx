@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import type { Dictionary } from "@/messages/es"
 import { cn } from "cn"
 
 export type Provider = "stripe" | "mp"
@@ -27,6 +26,8 @@ export type BillingTier = {
   name: string
   /** Importe ya formateado por proveedor: MP cobra en su moneda local. */
   prices: Partial<Record<Provider, string | null>>
+  /** Sufijo del importe ("/mes", "/90 días"): el periodo real del plan. */
+  period: string
   features: string[]
   action: "current" | "upgrade" | "subscribe"
 }
@@ -72,7 +73,6 @@ type BillingDict = {
 
 type BillingClientProps = {
   dict: BillingDict
-  pricing: Dictionary["pricing"]
   planName: string
   subscriptionStatus: string | null
   count: number
@@ -112,7 +112,6 @@ const ERROR_LABEL_KEYS: Record<string, keyof BillingDict> = {
 
 export function BillingClient({
   dict,
-  pricing,
   planName,
   subscriptionStatus,
   count,
@@ -375,7 +374,7 @@ export function BillingClient({
                       {priceFor(tier)}
                       <span className="text-sm font-normal text-muted-foreground">
                         {" "}
-                        {pricing.monthly}
+                        {tier.period}
                       </span>
                     </CardDescription>
                   </CardHeader>

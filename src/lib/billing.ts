@@ -1,5 +1,6 @@
 import "server-only"
-import { mpAmountForPlan, mpCurrencyId } from "@/lib/mp"
+import { minorToMajor } from "@/lib/money"
+import { mpCurrencyId } from "@/lib/mp"
 import type { Provider } from "@/lib/providers"
 
 /*
@@ -65,11 +66,6 @@ export function activeProviderFor(user: {
   return null
 }
 
-export type PlanMeta = {
-  priceCents: number | null
-  priceEnvKey: "STRIPE_PRICE_PRO" | "STRIPE_PRICE_COLLECTOR" | null
-}
-
 /**
  * A dónde vuelve el usuario tras pagar: se la mandamos a los proveedores como
  * `return_url`/`back_url` y es la que Stripe guarda en la sesión del portal.
@@ -103,72 +99,67 @@ export function billingReturnUrl(
   return `${base}/${locale}/app/billing`
 }
 
-/*
- * Los precios se declaran en céntimos (USD) para evitar errores de coma
- * flotante, y van en la MISMA posición que la escalera: el plan intermedio es
- * Coleccionista ($4.99) y el superior es Pro ($9.99). El price id real
- * proviene de una variable de entorno: en ningún momento se confía en un
- * price id enviado por el cliente.
- */
-export const PLAN_META: Record<string, PlanMeta> = {
-  FREE: { priceCents: null, priceEnvKey: null },
-  COLLECTOR: { priceCents: 499, priceEnvKey: "STRIPE_PRICE_COLLECTOR" },
-  PRO: { priceCents: 999, priceEnvKey: "STRIPE_PRICE_PRO" },
-}
-
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 })
 
-/** Precio de un plan en céntimos, o `null` si es gratuito / no está en la escalera. */
-export function planPriceCents(slug: string): number | null {
-  return PLAN_META[slug]?.priceCents ?? null
-}
-
-/** Precio de un plan ya formateado para pintar (los cobros son en USD fijo). */
-export function formatUsd(cents: number | null): string {
-  return usd.format((cents ?? 0) / 100)
-}
-
-export function priceIdForPlan(plan: string): string | null {
-  const meta = PLAN_META[plan]
-  if (!meta?.priceEnvKey) return null
-  return process.env[meta.priceEnvKey] ?? null
-}
-
-export function planFromPriceId(
-  priceId: string | null | undefined,
-): "PRO" | "COLLECTOR" | null {
-  if (priceId && priceId === process.env.STRIPE_PRICE_PRO) return "PRO"
-  if (priceId && priceId === process.env.STRIPE_PRICE_COLLECTOR)
-    return "COLLECTOR"
-  return null
-}
-
-/*
- * Precio por proveedor. Stripe cobra en USD (los importes viven en
- * `PLAN_META`, en céntimos), pero Mercado Pago cobra en la moneda de su sitio
- * (CLP, ARS, MXN...) y la de cada plan viene de `MP_PRICE_*`. Mostrar siempre
- * el precio en USD y cobrar en pesos sería mentirle al usuario, así que la
- * tarjeta de cada plan se pinta en la moneda del proveedor elegido.
+/**
+ * Precio de un plan formateado para pintar, en la moneda del proveedor al que se
+ * le va a cobrar.
+ *
+ * Los importes NO viven aquí: vienen en la fila `Plan` y los edita el admin desde
+ * `/admin/plans` (ver `getPlanPrice` en `src/lib/plans.ts`). Cada proveedor cobra
+ * en su moneda —Stripe en USD, MP en la de la cuenta, CLP—, así que un mismo plan
+ * tiene dos cifras y pintar siempre la de Stripe sería mentirle a quien paga por
+ * MP.
+ *
+ * `null` = no hay precio para ese proveedor (o falta la moneda de MP), y quien
+ * llama decide: en la tarjeta de facturación significa "no se ofrece por aquí".
  */
 export function formatPriceForProvider(args: {
-  slug: string
+  priceCents: number | null
+  mpPriceMinor: number | null
   provider: Provider
   locale: "es" | "en"
 }): string | null {
   if (args.provider === "stripe") {
-    return formatUsd(planPriceCents(args.slug))
+    if (args.priceCents === null || args.priceCents <= 0) return null
+    return usd.format(args.priceCents / 100)
   }
+  // Un 0 en un plan de pago significa "sin precio", no "gratis": se trata igual
+  // que un null en los dos proveedores para no pintar un precio de 0 que sí es un
+  // cambio de verdad en el checkout (Stripe rechazaría el importe, y MP cobraría 0).
   const currency = mpCurrencyId()
-  const amount = mpAmountForPlan(args.slug as PaidPlan)
-  if (!currency || !amount) return null
+  if (args.mpPriceMinor === null || args.mpPriceMinor <= 0) return null
+  const major = minorToMajor(args.mpPriceMinor, currency)
+  if (!currency || !major) return null
   // `currencyDisplay: "code"` a proposito: el simbolo del peso chileno es "$"
   // igual que el del dolar, y "4.990 $" seria ambiguo.
   const formatter = new Intl.NumberFormat(
     args.locale === "en" ? "en-US" : "es-ES",
     { style: "currency", currency, currencyDisplay: "code" },
   )
-  return formatter.format(Number(amount))
+  return formatter.format(Number(major))
+}
+
+/**
+ * Plan de una suscripción de Stripe, leído de SU metadata.
+ *
+ * El plan viaja en `subscription.metadata.plan`: lo pone el checkout al crear la
+ * suscripción y lo vuelve a poner el upgrade al cambiar el item. Antes se deducía
+ * del id del Price y eso ya no sirve: con el importe en la base de datos el
+ * checkout manda un `price_data` inline, de modo que cada compra genera un Price
+ * object distinto y no hay ningún id estable al que comparar.
+ *
+ * La metadata la escribe siempre el servidor (el `plan` llega del cliente pero
+ * validado contra `PAID_PLANS` antes de abrir el checkout) y aquí se contrasta
+ * contra esa MISMA allowlist, así que sigue siendo una puerta cerrada: un valor
+ * inesperado devuelve `null` y quien llama no toca el plan de nadie.
+ */
+export function planFromSubscriptionMetadata(metadata: {
+  plan?: string | null
+}): PaidPlan | null {
+  const plan = metadata.plan
+  return typeof plan === "string" && isPaidPlanSlug(plan) ? plan : null
 }

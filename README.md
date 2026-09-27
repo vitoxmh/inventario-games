@@ -56,8 +56,8 @@ Ver el detalle completo en [`.env.example`](./.env.example). Las que lee el cód
 - `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — opcionales; sin ambas, el provider Google se omite.
 - `ADMIN_EMAILS` — lista separada por comas (case-insensitive). **Mecanismo de admin**: en cada login y en cada `requireAdmin()` el usuario cuyo email esté en la lista es promovido a `role: "admin"`. Vacía → nadie es admin.
 - `RAWG_API_KEY` — búsqueda de juegos en el alta (RAWG). Sin ella, la búsqueda devuelve `[]`.
-- Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_COLLECTOR`.
-- MercadoPago: `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `MP_CURRENCY_ID`, `MP_PRICE_PRO/COLLECTOR` y `CRON_SECRET` (barrido de periodos vencidos). Sin `MP_PRICE_*` el proveedor se considera no configurado.
+- Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`. **Sin variables de precio**: los importes se editan en `/admin/plans` y viven en la tabla `Plan`.
+- MercadoPago: `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `MP_CURRENCY_ID` y `CRON_SECRET` (barrido de periodos vencidos).
 - `BLOB_READ_WRITE_TOKEN` — Vercel Blob para imágenes (sin token, en local las imágenes caen en `public/uploads/`).
 - Email: `RESEND_API_KEY`, `EMAIL_FROM`. **Sin `RESEND_API_KEY`, el registro auto-verifica** (no se puede login con correo no verificado si el email se envía).
 - `SITE_URL` — base para el `metadata.metadataBase` del layout raíz.
@@ -111,8 +111,9 @@ src/
     db.ts               # cliente Prisma con adapter Neon (singleton)
     guard.ts            # requireAdmin() + promoción por ADMIN_EMAILS
     admin-emails.ts     # ADMIN_EMAILS parseado
-    plans.ts            # helpers del plan (límites) — client-safe? No: server-only
-    billing.ts          # TIER_RANK, PLAN_META (precios USD), price ids, tipo Provider
+    plans.ts            # filas de Plan, límites, precios (getPlanPrice/getPlanStripeProduct) — server-only
+    money.ts            # minor units ↔ importe formateado + monedas sin decimales — client-safe
+    billing.ts          # TIER_RANK, escalera de planes, precio por proveedor, tipo Provider
     providers.ts        # registro de medios de pago: enum PaymentProvider + variables de env que necesita cada uno
     payment-providers.ts # interruptor del admin (PaymentProviderSetting) cruzado con la config de env
     payments.ts         # orquestador checkout/portal por proveedor (Stripe/MP)
@@ -143,8 +144,9 @@ src/
 |---|---|
 | `User` | Cuenta, `plan` (texto, default `FREE`), `role` (`user`/`admin`), `bannedAt`, `emailVerifiedAt`, ids de Stripe/MP y estado de suscripción |
 | `Platform` | Plataformas gestionadas por el admin (`name`/`slug` únicos). **No son texto libre**: el cliente solo selecciona. `onDelete: Restrict` desde Game |
-| `Plan` | Planes DB-driven (`slug`, `nameEs`, `nameEn`, `gameLimit` nullable=ilimitado, `imageLimit`, `paid`, `active`, `sortOrder`) |
+| `Plan` | Planes DB-driven (`slug`, `nameEs`, `nameEn`, `gameLimit` nullable=ilimitado, `imageLimit`, `priceCents`/`mpPriceMinor`/`durationDays`, `paid`, `active`, `sortOrder`) |
 | `PaymentProviderSetting` | Interruptor de cada medio de pago (`provider` = enum `PaymentProvider`, `enabled`). **Sin fila = habilitado**. Solo cierra compras nuevas |
+| `Payment` | Cobro confirmado (historial): `provider`, `externalId` (id de invoice/order), `plan`, `amountMinor` + `currency`, `durationDays`, `status` (solo `paid`). `@@unique([provider, externalId])` = idempotencia. `onDelete: Cascade` desde User |
 | `Game` | Juego del inventario (pertenece a un `User`, FK a `Platform`). `coverImageUrl` (portada, puede venir de RAWG), `images` → GameImage |
 | `GameImage` | Fotos por juego (posición 0 = portada). `onDelete: Cascade` desde Game |
 | `Account`, `Session`, `VerificationToken` | Tablas del adapter de Auth.js |
@@ -199,17 +201,25 @@ Las rutas de la API **no pasan por el proxy** (están excluidas), así que cada 
 - Cambiar textos = editar **los dos** archivos de mensajes (es y en).
 
 ### Pagos (Stripe + MercadoPago)
-- `src/lib/billing.ts`: `TIER_RANK` (FREE<PRO<COLLECTOR), `PLAN_META` (precios fijos en USD, `priceEnvKey`), `getEnabledProviders()` (Stripe y/o MP según env), `priceIdForPlan`, `planFromPriceId`.
+- **Los precios son datos, no código**: viven en la tabla `Plan` (`priceCents` en céntimos USD, `mpPriceMinor` en unidades menores de `MP_CURRENCY_ID`) y se editan en `/admin/plans`. Cambiar un precio es un UPDATE, no un redeploy. `Plan.stripeProductId` (opcional) agrupa los precios de Stripe en el panel; sin él, el checkout genera un Product efímero con el nombre del plan.
+- **La duración del periodo también es un dato**: `Plan.durationDays` (días que da un pago, 30 por defecto, los mismos para Stripe y para MP). Rango 1–1095 (el tope de Stripe son 3 años) validado en `api/admin/plans` con 400 `invalid_duration_days`, y `planDurationDaysOf()` cae a 30 si la fila trae algo inválido. `stripeRecurring()` lo traduce al `interval`/`interval_count` de Stripe y `planPeriodLabel()` pinta el periodo real en precios y facturación (30 días = `/mes`, 90 = `/3 meses`).
+- `src/lib/plans.ts`: `listPlans`, `getViewerPlan`, `getPlanPrice(plan, "stripe"|"mp")`, `getPlanStripeProduct` (con `cache()`: el checkout no vuelve a leer la fila).
+- `src/lib/money.ts`: reglas de dinero **client-safe** (tabla de monedas sin decimales + formateo). Vive aparte de `billing.ts`/`mp.ts` porque esos son `server-only` y el panel de admin necesita la misma lógica, no una copia.
+- `src/lib/billing.ts`: `PLAN_LADDER`/`PAID_PLANS` (los planes comprables), `TIER_RANK` (FREE<COLLECTOR<PRO), `formatPriceForPlan`(por proveedor y moneda) y `planFromSubscriptionMetadata`.
 - `src/lib/payments.ts`: `checkoutUrl()` (por proveedor) y `portalUrl()`.
-  - **Stripe**: checkout de suscripción (crea `Customer` en la primera compra, guarda `stripeCustomerId`); si ya hay suscripción ACTIVE → portal de cliente. El portal también se usa para gestionar una activa.
-  - **MP** (Checkout Pro con redirección, vía el SDK oficial `mercadopago`): crea una `order` con `processing_mode: "manual"` y devuelve la `checkout_url` de nivel superior; el usuario paga en la página hosted de MP (tarjeta, dinero de la cuenta, Rapipago, Pago Fácil o cuotas sin tarjeta). El alta **no** activa el plan en la respuesta del request: lo hace el webhook `order`. El importe sale siempre de `MP_PRICE_*`.
-- **Vencimiento en MP**: MP no agenda cobros y no se guarda tarjeta, así que cada pago da 30 días (`MP_BILLING_PERIOD_DAYS`) y el siguiente ciclo vuelve a pasar por el checkout. `vercel.json` corre a diario `/api/mp/expire` (Vercel Cron → `GET` + `Authorization: Bearer $CRON_SECRET`; sin `CRON_SECRET` responde 503) y degrada a FREE/INACTIVE solo a quien tiene `mpLastChargeAt` más antiguo que el periodo —el filtro `lt` excluye los `null`, así que nunca toca a un cliente de Stripe— limpiando esa misma columna.
+  - **Stripe**: checkout de suscripción (crea `Customer` en la primera compra, guarda `stripeCustomerId`); si ya hay suscripción ACTIVE → portal de cliente. El portal también se usa para gestionar una activa. El importe va como `price_data` inline, así que **no hay Price objects ni variables de precio**: cada compra genera un Price propio (los Prices son inmutables). El plan viaja en la metadata de la sesión **y** en la de la suscripción (`subscription_data.metadata`), que es de donde lo lee el webhook.
+  - **MP** (Checkout Pro con redirección, vía el SDK oficial `mercadopago`): crea una `order` con `processing_mode: "manual"` y devuelve la `checkout_url` de nivel superior; el usuario paga en la página hosted de MP (tarjeta, dinero de la cuenta, Rapipago, Pago Fácil o cuotas sin tarjeta). El alta **no** activa el plan en la respuesta del request: lo hace el webhook `order`. El importe sale siempre de `Plan.mpPriceMinor`, formateado con los decimales de `MP_CURRENCY_ID`.
+- **Vencimiento en MP**: MP no agenda cobros y no se guarda tarjeta, así que cada pago da los días que marque `Plan.durationDays` (30 por defecto, editable en `/admin/plans`) y el siguiente ciclo vuelve a pasar por el checkout. `vercel.json` corre a diario `/api/mp/expire` (Vercel Cron → `GET` + `Authorization: Bearer $CRON_SECRET`; sin `CRON_SECRET` responde 503) y degrada a FREE/INACTIVE solo a quien tiene `mpLastChargeAt` más antiguo que el periodo **de su plan** —el filtro `lt` excluye los `null`, así que nunca toca a un cliente de Stripe— limpiando esa misma columna.
 - **Upgrade en MP**: no hay prorrateo, así que subir de plan **es pagar el plan nuevo**: se devuelve la `checkout_url` de una order por su importe y el plan entra cuando se apruebe.
+- **Upgrade en Stripe**: a diferencia del checkout, aquí `price_data.product` es obligatorio y no admite `product_data`, así que se usa `Plan.stripeProductId` y, si el admin no lo ha rellenado, el producto del Price que la suscripción ya tiene. La metadata se actualiza en el MISMO `subscriptions.update` que el item: si no, el `subscription.updated` leería el plan viejo con la factura ya cobrada.
 - **Autogestión en MP**: no hay portal. Cancelar desde la app (`POST /api/billing/portal` con `provider: "mp"`) significa "no me cobres el mes que viene": vuelve a FREE y suelta el periodo en curso.
 - **Webhooks actualizan el plan** (única vía de cambiar plan de pago):
-  - `POST /api/stripe/webhook` (firma `stripe-signature`, eventos: checkout.completed, subscription.updated, subscription.deleted, invoice.payment_failed). El plan se deriva de price ids reales + cross-check con metadata. **Guardia de rango**: nunca degrada un plan en curso.
+  - `POST /api/stripe/webhook` (firma `stripe-signature`, eventos: checkout.completed, subscription.updated, subscription.deleted, invoice.payment_failed, **invoice.paid**). El plan se deriva de la **metadata de la suscripción** (allowlist `PAID_PLANS`) y se cross-checkea con la de la sesión. **Guardia de rango**: nunca degrada un plan en curso. Una suscripción sin plan en la metadata **no** degrada a nadie (solo actualiza el estado): es el caso de las creadas antes de que el plan viajara en la metadata, y escribirlas a FREE era el bug de "paga pero no tiene plan". `invoice.paid` es el único que **escribe en `Payment`** (y no toca plan ni suscripción): sin ese evento suscrito en el panel, los cobros de Stripe no aparecen en el historial.
   - `POST /api/mp/webhook` (un solo tópico por query param: `order`). La firma HMAC `x-signature` la comprueba el `WebhookSignatureValidator` del SDK, y el `data.id` se valida antes de meterse en un path. Nunca se confía en el estado de la notificación: se repregunta `order.get` a la API de MP, y la fila se localiza por el `userId` del `external_reference` (`gv_<userId>_<PLAN>`) validado contra la allowlist de planes.
-- Norma de seguridad a mantener: **nunca derivar el plan de inputs del cliente**; siempre del proveedor (price id / `external_reference` firmado) y contra BD.
+- Norma de seguridad a mantener: **nunca derivar el plan ni el importe de inputs del cliente**; el plan viene del proveedor (metadata de la suscripción / `external_reference` firmado) contra BD, y el importe de la fila `Plan`.
+- **Historial de pagos** (`Payment`, migración `20260927000000_payment_history`): la foto de cada **cobro confirmado** (`provider`, `externalId`, `plan`, `amountMinor`, `currency`, `durationDays`, `status`), con `@@unique([provider, externalId])` como idempotencia y `User.payments` en cascade. Solo se guarda `paid`: no es un libro mayor, no hay `failed`/`refunded`/`pending`. Se escribe **solo** vía `recordPayment()` de `src/lib/payment-history.ts`, y solo desde dos sitios: MP en `settleMpCheckout` (tras conceder el plan) y Stripe en el handler `invoice.paid` (que no toca plan ni suscripción). Se lee con `listUserPayments(userId)`/`countUserPayments(userId)`, siempre filtrando por el `userId` de la sesión, y lo pinta `src/components/billing/payment-history.tsx` (Server Component) en `/app/billing`.
+  - **Reparación de lo anterior a la tabla**: cada visita a `/app/billing` llama a `backfillMissingPaymentsForUser()`, que cruza `MpCheckout.status = "paid"` con lo ya registrado y rellena lo que falte (idempotente, en lotes). **Stripe no se repara**: no hay copia local de facturas y sincronizar contra la API en cada visita sería lento y un vector de amplificación.
+  - `amountMinor` va en unidades menores de su `currency`; formatear con `formatMinorCurrency()` de `src/lib/money.ts` (nunca multiplicar por 100 a mano, y nunca asumir 2 decimales: CLP/JPY/KRW no los tienen).
 
 ### Subida de imágenes (`/api/games/upload`)
 - Auth requerida, rate limited, `imageLimit > 0` obligatorio (403 `plan_required` si el plan no tiene fotos).
@@ -360,6 +370,8 @@ El detalle completo está en `AGENTS.md` (sección "Bugs y lecciones ya corregid
 - **Archivo `"use server"` solo exporta funciones async**: constantes de runtime en módulo normal (ej. `src/lib/i18n/locales.ts`).
 - **Subir imágenes en Vercel**: el filesystem es efímero; usar Vercel Blob (lección 11 de AGENTS.md).
 - **E2E con clicks sintéticos miente** (abren diálogos aunque el handler esté roto): para validar interactivos usar eventos de ratón reales.
+- **`next dev` no type-checkea**: un nombre de campo mal escrito compila y solo lo pilla `npm run build`. Ante campos de SDKs de terceros, comprobar el tipo en `node_modules` y contrastar con la API real (ej. la order de MP devuelve `currency`, no `currency_id`).
+- **Un string que empieza por `$` sale como `$$…` en el payload RSC**: es el escapado del protocolo *flight`, no un precio duplicado. Para comprobar precios, leer el texto renderizado (HTML sin `<script>`), no `self.__next_f`.
 - No hay test runner en el repo: la verificación es `npm run lint` + `npm run build`.
 
 ---
