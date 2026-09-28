@@ -1,0 +1,98 @@
+@use "../abstracts" as *;
+
+/*
+ * Shell de la zona autenticada (`/[lang]/app`) y del panel de admin.
+ * Ambos comparten el mismo patrón: contenedor + navegación + contenido.
+ */
+
+.app-shell {
+  display: block;
+  width: 100%;
+  padding: var(--gv-space-4) var(--gv-space-3);
+
+  @include from($bp-sm) {
+    padding-inline: var(--gv-space-4);
+  }
+
+  // En escritorio la navegación pasa a ser una columna fija a la izquierda.
+  @include from($bp-md) {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: var(--gv-space-3);
+    align-items: start;
+  }
+}
+
+.app-shell__nav {
+  margin-bottom: var(--gv-space-3);
+
+  @include from($bp-md) {
+    position: sticky;
+    top: var(--gv-space-3);
+    margin-bottom: 0;
+  }
+}
+
+.app-shell__list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.app-shell__link {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.app-shell__main {
+  min-width: 0;
+}
+
+.app-shell__back {
+  position: sticky;
+  top: 0;
+  z-index: $z-sticky;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0;
+  margin-bottom: var(--gv-space-2);
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+  color: var(--gv-text-muted);
+  background: linear-gradient(var(--gv-bg) 70%, transparent);
+  transition: color $dur-fast $ease-out;
+
+  @include focus-ring(0);
+
+  &:hover {
+    color: var(--gv-text);
+  }
+}
+
+.app-shell__back-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Panel de admin: navegación horizontal de fichas. */
+.admin-shell {
+  width: 100%;
+  padding: var(--gv-space-4) var(--gv-space-3);
+
+  @include from($bp-sm) {
+    padding-inline: var(--gv-space-4);
+  }
+}
+
+.admin-shell__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: var(--gv-space-3);
+}
+
+.admin-shell__link {
+  gap: 0.375rem;
+}

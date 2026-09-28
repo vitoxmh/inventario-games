@@ -1,0 +1,200 @@
+@use "../abstracts" as *;
+
+/* Interruptor. Base UI marca `data-checked` / `data-unchecked` / `data-disabled`
+   en la raíz y también en el pulgar. */
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  width: 2rem;
+  height: 1.15rem;
+  padding: 0;
+  background: var(--gv-surface-3);
+  border: 1px solid transparent;
+  border-radius: var(--gv-radius-full);
+  cursor: pointer;
+  transition:
+    background-color $dur-base $ease-out,
+    border-color $dur-base $ease-out;
+
+  @include focus-ring(0);
+
+  // Zona de pulsación más amplia que el propio control, sin alterar su tamaño.
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline: -0.75rem;
+    inset-block: -0.5rem;
+  }
+
+  &[data-checked] {
+    background: var(--gv-primary);
+  }
+
+  &[aria-invalid] {
+    border-color: var(--gv-danger);
+    box-shadow: 0 0 0 3px var(--gv-danger-soft);
+  }
+
+  &[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.switch--sm {
+  width: 1.5rem;
+  height: 0.875rem;
+}
+
+.switch__thumb {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  pointer-events: none;
+  background: var(--gv-surface);
+  border-radius: var(--gv-radius-full);
+  transform: translateX(0);
+  transition: transform $dur-base $ease-out;
+
+  .switch[data-checked] & {
+    background: var(--gv-primary-contrast);
+    transform: translateX(calc(100% - 2px));
+  }
+}
+
+.switch--sm .switch__thumb {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* Casilla de marcar. */
+.checkbox {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  background: transparent;
+  border: 1px solid var(--gv-border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background-color $dur-fast $ease-out,
+    border-color $dur-fast $ease-out,
+    color $dur-fast $ease-out;
+
+  @include focus-ring(0);
+
+  // Zona de pulsación más amplia que el propio control.
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline: -0.75rem;
+    inset-block: -0.5rem;
+  }
+
+  &[data-checked] {
+    color: var(--gv-primary-contrast);
+    background: var(--gv-primary);
+    border-color: var(--gv-primary);
+  }
+
+  &[aria-invalid] {
+    border-color: var(--gv-danger);
+    box-shadow: 0 0 0 3px var(--gv-danger-soft);
+  }
+
+  &[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.checkbox--sm {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.checkbox__indicator {
+  display: grid;
+  place-content: center;
+  color: currentcolor;
+
+  > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+/* Botón de opción. */
+.radio {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  background: transparent;
+  border: 1px solid var(--gv-border-strong);
+  border-radius: var(--gv-radius-full);
+  cursor: pointer;
+  transition:
+    background-color $dur-fast $ease-out,
+    border-color $dur-fast $ease-out;
+
+  @include focus-ring(0);
+
+  // Zona de pulsación más amplia que el propio control.
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline: -0.75rem;
+    inset-block: -0.5rem;
+  }
+
+  &[data-checked] {
+    background: var(--gv-primary);
+    border-color: var(--gv-primary);
+  }
+
+  &[aria-invalid] {
+    border-color: var(--gv-danger);
+    box-shadow: 0 0 0 3px var(--gv-danger-soft);
+  }
+
+  &[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.radio--sm {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.radio__indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.radio__dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  background: var(--gv-primary-contrast);
+  border-radius: var(--gv-radius-full);
+}
+
+.radio-group {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+}

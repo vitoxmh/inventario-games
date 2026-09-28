@@ -26,15 +26,13 @@ export default async function SuspendedPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 px-4 py-24 text-center">
-      <div className="flex size-16 items-center justify-center rounded-full bg-destructive/10">
-        <ShieldAlert className="size-8 text-destructive" aria-hidden="true" />
+    <div className="status-page">
+      <div className="status-page__icon">
+        <ShieldAlert aria-hidden="true" />
       </div>
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {dict.app.suspendedTitle}
-        </h1>
-        <p className="text-muted-foreground">{dict.app.suspendedBody}</p>
+      <div className="status-page__body">
+        <h1 className="status-page__title">{dict.app.suspendedTitle}</h1>
+        <p className="status-page__text">{dict.app.suspendedBody}</p>
       </div>
       <Link href={`/${locale}`} className={buttonVariants({ variant: "outline" })}>
         <Home aria-hidden="true" />

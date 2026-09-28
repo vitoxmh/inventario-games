@@ -34,12 +34,10 @@ function BreakdownRow({
   total: number
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between gap-2 text-sm">
-        <span className="truncate font-medium">{label}</span>
-        <span className="shrink-0 text-muted-foreground tabular-nums">
-          {count}
-        </span>
+    <div className="stats__row">
+      <div className="stats__row-head">
+        <span className="stats__row-label">{label}</span>
+        <span className="stats__row-count">{count}</span>
       </div>
       <Progress value={Math.round((count / total) * 100)} />
     </div>
@@ -134,45 +132,36 @@ export default async function StatsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          {dict.inventory.statsTitle}
-        </h2>
-        <p className="text-sm text-muted-foreground">{dict.app.dashboard}</p>
+    <div className="stats">
+      <div className="stats__header">
+        <h2 className="stats__title">{dict.inventory.statsTitle}</h2>
+        <p className="stats__subtitle">{dict.app.dashboard}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="stats__grid">
         {cards.map(({ label, value, icon: Icon }) => (
-          <div
-            key={label}
-            className="flex flex-col gap-2 rounded-xl border bg-card p-4"
-          >
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Icon className="size-4" aria-hidden="true" />
+          <div key={label} className="stats__card">
+            <div className="stats__card-label">
+              <Icon aria-hidden="true" />
               {label}
             </div>
-            <p className="truncate text-2xl font-semibold tracking-tight">
-              {value}
-            </p>
+            <p className="stats__card-value">{value}</p>
           </div>
         ))}
       </div>
 
       {total === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed p-12 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <Gamepad2 className="size-6 text-muted-foreground" aria-hidden="true" />
+        <div className="empty">
+          <div className="empty__icon">
+            <Gamepad2 aria-hidden="true" />
           </div>
-          <p className="text-sm text-muted-foreground">{dict.inventory.noStats}</p>
+          <p className="stats__subtitle">{dict.inventory.noStats}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-          <section className="flex flex-col gap-3">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              {dict.inventory.byStatus}
-            </h3>
-            <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+        <div className="stats__sections">
+          <section className="stats__section">
+            <h3 className="stats__section-title">{dict.inventory.byStatus}</h3>
+            <div className="stats__breakdown">
               {[...byStatus.entries()]
                 .filter(([, count]) => count > 0)
                 .sort((a, b) => b[1] - a[1])
@@ -187,11 +176,9 @@ export default async function StatsPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-3">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              {dict.inventory.byPlatform}
-            </h3>
-            <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+          <section className="stats__section">
+            <h3 className="stats__section-title">{dict.inventory.byPlatform}</h3>
+            <div className="stats__breakdown">
               {topPlatforms.map(([platform, count]) => (
                 <BreakdownRow
                   key={platform}
@@ -203,11 +190,9 @@ export default async function StatsPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-3">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              {dict.inventory.byGenre}
-            </h3>
-            <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+          <section className="stats__section">
+            <h3 className="stats__section-title">{dict.inventory.byGenre}</h3>
+            <div className="stats__breakdown">
               {topGenres.length > 0 ? (
                 topGenres.map(([genre, count]) => (
                   <BreakdownRow
@@ -218,41 +203,37 @@ export default async function StatsPage() {
                   />
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  {dict.inventory.noStats}
-                </p>
+                <p className="stats__subtitle">{dict.inventory.noStats}</p>
               )}
             </div>
           </section>
 
-          <section className="flex flex-col gap-3">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              {dict.inventory.highlights}
-            </h3>
-            <div className="flex h-full flex-col justify-center gap-3 rounded-lg border bg-card p-4">
-              <div className="flex items-center gap-3">
-                <Crown className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
+          <section className="stats__section">
+            <h3 className="stats__section-title">{dict.inventory.highlights}</h3>
+            <div className="stats__breakdown stats__breakdown--center">
+              <div className="stats__highlight">
+                <Crown className="stats__highlight-icon" aria-hidden="true" />
+                <div className="stats__highlight-body">
+                  <p className="stats__highlight-title">
                     {mostExpensive
                       ? mostExpensive.title
                       : dict.inventory.total}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="stats__highlight-note">
                     {dict.inventory.mostExpensive}
                   </p>
                 </div>
                 {mostExpensive && (
-                  <span className="ml-auto text-sm font-semibold">
+                  <span className="stats__highlight-value">
                     {formatMoney(mostExpensive.price)}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                <Box className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{sealed}</p>
-                  <p className="text-xs text-muted-foreground">
+              <div className="stats__highlight">
+                <Box className="stats__highlight-icon" aria-hidden="true" />
+                <div className="stats__highlight-body">
+                  <p className="stats__highlight-title">{sealed}</p>
+                  <p className="stats__highlight-note">
                     {dict.inventory.sealed}
                   </p>
                 </div>

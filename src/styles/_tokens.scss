@@ -1,0 +1,187 @@
+/*
+ * Tokens de diseño.
+ *
+ * Todos los valores del diseño viven aquí como custom properties en `:root`
+ * (tema claro) y `.dark` (tema oscuro). El <html> siempre lleva una clase
+ * explícita `light` o `dark` — la pone el script anti-FOUC del ThemeProvider
+ * antes del primer paint — así que no hace falta bloquear por
+ * `prefers-color-scheme` aquí: el sistema decide, no la preferencia del SO.
+ *
+ * La paleta viene del diseño de Stitch (Obsidian Kinetic): violeta `#a078ff`,
+ * cyan `#03b5d3` y rosa `#f751a1` sobre un azul noche `#0b1326`.
+ */
+
+// ---------------------------------------------------------------------------
+// Tema claro (por defecto)
+// ---------------------------------------------------------------------------
+:root {
+  color-scheme: light;
+
+  // Superficies
+  --gv-bg: #f6f7fc;
+  --gv-bg-elevated: rgba(255, 255, 255, 0.82);
+  --gv-surface: #ffffff;
+  --gv-surface-2: #f1f2f9;
+  --gv-surface-3: #e5e7f3;
+  --gv-overlay: rgba(14, 20, 40, 0.45);
+
+  // Texto
+  --gv-text: #131a2e;
+  --gv-text-muted: #4e5a78;
+  --gv-text-subtle: #6d7794;
+  --gv-text-inverse: #ffffff;
+
+  // Bordes
+  --gv-border: #e2e5f0;
+  --gv-border-strong: #c6cce0;
+
+  // Marca
+  --gv-primary: #6c3ff0;
+  --gv-primary-hover: #5a2ed6;
+  --gv-primary-soft: rgba(108, 63, 240, 0.12);
+  --gv-primary-contrast: #ffffff;
+
+  --gv-accent: #0a8aa4;
+  --gv-accent-soft: rgba(10, 138, 164, 0.12);
+  --gv-accent-contrast: #ffffff;
+
+  --gv-tertiary: #d33d80;
+  --gv-tertiary-soft: rgba(211, 61, 128, 0.12);
+  --gv-tertiary-contrast: #ffffff;
+
+  // Semánticos
+  --gv-danger: #d32b47;
+  --gv-danger-soft: rgba(211, 43, 71, 0.12);
+  --gv-danger-contrast: #ffffff;
+  --gv-success: #128a5b;
+  --gv-success-soft: rgba(18, 138, 91, 0.12);
+  --gv-warning: #a86a09;
+  --gv-warning-soft: rgba(168, 106, 9, 0.14);
+  --gv-info: #1f6fd0;
+  --gv-info-soft: rgba(31, 111, 208, 0.12);
+
+  --gv-ring: rgba(108, 63, 240, 0.6);
+
+  // Sombras
+  --gv-shadow-sm: 0 1px 2px rgba(19, 26, 46, 0.06);
+  --gv-shadow-md: 0 10px 30px -12px rgba(19, 26, 46, 0.22);
+  --gv-shadow-lg: 0 24px 60px -20px rgba(19, 26, 46, 0.32);
+
+  // Gráficos
+  --gv-chart-1: #6c3ff0;
+  --gv-chart-2: #0a8aa4;
+  --gv-chart-3: #d33d80;
+  --gv-chart-4: #128a5b;
+  --gv-chart-5: #a86a09;
+
+  --gv-skeleton: #e5e7f3;
+  --gv-skeleton-shine: rgba(255, 255, 255, 0.65);
+}
+
+// ---------------------------------------------------------------------------
+// Tema oscuro
+// ---------------------------------------------------------------------------
+.dark {
+  color-scheme: dark;
+
+  --gv-bg: #0b1326;
+  --gv-bg-elevated: rgba(11, 19, 38, 0.78);
+  --gv-surface: #171f33;
+  --gv-surface-2: #1e2740;
+  --gv-surface-3: #28324f;
+  --gv-overlay: rgba(3, 7, 18, 0.72);
+
+  --gv-text: #eef2ff;
+  --gv-text-muted: #a4b1cd;
+  --gv-text-subtle: #7f8cab;
+  --gv-text-inverse: #0b1326;
+
+  --gv-border: #27314f;
+  --gv-border-strong: #3a466c;
+
+  --gv-primary: #a078ff;
+  --gv-primary-hover: #b794ff;
+  --gv-primary-soft: rgba(160, 120, 255, 0.18);
+  --gv-primary-contrast: #150a30;
+
+  --gv-accent: #4cd7f6;
+  --gv-accent-soft: rgba(76, 215, 246, 0.18);
+  --gv-accent-contrast: #04222c;
+
+  --gv-tertiary: #ffb0cd;
+  --gv-tertiary-soft: rgba(255, 176, 205, 0.18);
+  --gv-tertiary-contrast: #3a0a22;
+
+  --gv-danger: #ff7f90;
+  --gv-danger-soft: rgba(255, 127, 144, 0.18);
+  --gv-danger-contrast: #34070f;
+  --gv-success: #5ee6a8;
+  --gv-success-soft: rgba(94, 230, 168, 0.18);
+  --gv-warning: #ffc46b;
+  --gv-warning-soft: rgba(255, 196, 107, 0.18);
+  --gv-info: #7cb8ff;
+  --gv-info-soft: rgba(124, 184, 255, 0.18);
+
+  --gv-ring: rgba(160, 120, 255, 0.7);
+
+  --gv-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --gv-shadow-md: 0 14px 34px -14px rgba(0, 0, 0, 0.7);
+  --gv-shadow-lg: 0 28px 70px -24px rgba(0, 0, 0, 0.8);
+
+  --gv-chart-1: #a078ff;
+  --gv-chart-2: #4cd7f6;
+  --gv-chart-3: #ffb0cd;
+  --gv-chart-4: #5ee6a8;
+  --gv-chart-5: #ffc46b;
+
+  --gv-skeleton: #222c48;
+  --gv-skeleton-shine: rgba(255, 255, 255, 0.07);
+}
+
+// ---------------------------------------------------------------------------
+// Tokens que no cambian con el tema
+// ---------------------------------------------------------------------------
+:root {
+  // Radios del diseño: DEFAULT .25rem, lg .5rem, xl .75rem, full.
+  --gv-radius-sm: 0.25rem;
+  --gv-radius-md: 0.5rem;
+  --gv-radius-lg: 0.75rem;
+  --gv-radius-full: 9999px;
+
+  // Escala de espaciado del diseño.
+  --gv-space-1: 0.25rem;
+  --gv-space-2: 0.5rem;
+  --gv-space-3: 1rem;
+  --gv-space-4: 1.5rem;
+  --gv-space-5: 2.5rem;
+
+  // Tipografías. Las variables las inyecta `next/font` en el layout raíz.
+  --gv-font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --gv-font-heading:
+    var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  --gv-font-mono:
+    var(--font-geist-mono), ui-monospace, "SFMono-Regular", "Cascadia Mono",
+    monospace;
+
+  --gv-text-xs: 0.75rem;
+  --gv-text-sm: 0.8125rem;
+  --gv-text-base: 0.9375rem;
+  --gv-text-md: 1rem;
+  --gv-text-lg: 1.125rem;
+  --gv-text-xl: 1.375rem;
+  --gv-text-2xl: 1.75rem;
+  --gv-text-3xl: 2.25rem;
+  --gv-text-4xl: 3rem;
+
+  // CTA de marca: el degradado violeta → cyan del login del diseño.
+  --gv-gradient-cta: linear-gradient(135deg, #a078ff 0%, #03b5d3 100%);
+  // Halo sutil para superficies destacadas (tarjetas de plan, CTA).
+  --gv-gradient-glow: linear-gradient(
+    150deg,
+    rgba(160, 120, 255, 0.16) 0%,
+    rgba(3, 181, 211, 0.14) 100%
+  );
+}

@@ -1,0 +1,96 @@
+@use "../abstracts" as *;
+
+/* Panel lateral. `data-side` decide por dónde entra. */
+.sheet__content {
+  position: fixed;
+  z-index: $z-popover;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-2);
+  font-size: var(--gv-text-base);
+  color: var(--gv-text);
+  background: var(--gv-surface);
+  box-shadow: var(--gv-shadow-lg);
+
+  &[data-side="right"] {
+    inset-block: 0;
+    inset-inline-end: 0;
+    width: 75%;
+    max-width: 24rem;
+    border-inline-start: 1px solid var(--gv-border);
+  }
+
+  &[data-side="left"] {
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 75%;
+    max-width: 24rem;
+    border-inline-end: 1px solid var(--gv-border);
+  }
+
+  &[data-side="top"] {
+    inset-inline: 0;
+    top: 0;
+    max-height: 85dvh;
+    border-bottom: 1px solid var(--gv-border);
+  }
+
+  &[data-side="bottom"] {
+    inset-inline: 0;
+    bottom: 0;
+    max-height: 85dvh;
+    border-top: 1px solid var(--gv-border);
+  }
+
+  @include motion-ok {
+    transition: transform $dur-base $ease-out;
+  }
+}
+
+.sheet__content[data-side="right"][data-starting-style],
+.sheet__content[data-side="right"][data-ending-style] {
+  transform: translateX(2.5rem);
+}
+
+.sheet__content[data-side="left"][data-starting-style],
+.sheet__content[data-side="left"][data-ending-style] {
+  transform: translateX(-2.5rem);
+}
+
+.sheet__content[data-side="top"][data-starting-style],
+.sheet__content[data-side="top"][data-ending-style] {
+  transform: translateY(-2.5rem);
+}
+
+.sheet__content[data-side="bottom"][data-starting-style],
+.sheet__content[data-side="bottom"][data-ending-style] {
+  transform: translateY(2.5rem);
+}
+
+.sheet__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: var(--gv-space-3);
+  padding-inline-end: 3rem;
+}
+
+.sheet__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding: var(--gv-space-3);
+  border-top: 1px solid var(--gv-border);
+}
+
+.sheet__close {
+  position: absolute;
+  top: 0.75rem;
+  inset-inline-end: 0.75rem;
+  color: var(--gv-text-muted);
+
+  &:hover {
+    color: var(--gv-text);
+  }
+}

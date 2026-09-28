@@ -1,0 +1,94 @@
+@use "../abstracts" as *;
+
+/* Formularios de acceso y registro. */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.auth-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.auth-form__link {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+  text-align: center;
+  text-underline-offset: 4px;
+  border-radius: var(--gv-radius-sm);
+
+  @include focus-ring(0);
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.auth-form__link-strong {
+  font-weight: 600;
+  color: var(--gv-text);
+}
+
+.auth-form__aside {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+  text-align: center;
+}
+
+.auth-form__legal {
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-subtle);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.auth-form__legal a {
+  color: var(--gv-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+
+  &:hover {
+    color: var(--gv-text);
+  }
+}
+
+/* Separador "o" entre el formulario y el botón de Google. */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-subtle);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--gv-border);
+}
+
+.auth-divider__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Contenedor de página estrecho y centrado (login, registro, estados). */
+.auth-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+  width: 100%;
+  max-width: 28rem;
+  padding: var(--gv-space-5) var(--gv-space-3);
+  margin-inline: auto;
+
+  @include from($bp-sm) {
+    padding-inline: var(--gv-space-4);
+  }
+}

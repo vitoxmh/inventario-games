@@ -145,9 +145,9 @@ export default async function AdminSubscriptionsPage() {
                         <Badge
                           variant={
                             sub.subscriptionStatus === SubscriptionStatus.ACTIVE
-                              ? "default"
+                              ? "success"
                               : sub.subscriptionStatus === SubscriptionStatus.PAST_DUE
-                                ? "destructive"
+                                ? "danger"
                                 : "outline"
                           }
                         >

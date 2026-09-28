@@ -177,7 +177,7 @@ export default async function BillingPage(
   )
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="billing">
       <BillingClient
         dict={dict.billing}
         planName={planLabel}

@@ -1,0 +1,235 @@
+@use "../abstracts" as *;
+
+/*
+ * Botón. Un solo bloque con modificadores de variante y de tamaño; el
+ * `data-icon` que pone Base UI (inline-start / inline-end) ajusta el padding
+ * cuando el icono va dentro del botón.
+ */
+.btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 2.5rem;
+  padding-inline: 1rem;
+  font-family: inherit;
+  font-size: var(--gv-text-base);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--gv-radius-md);
+  transition:
+    background-color $dur-fast $ease-out,
+    border-color $dur-fast $ease-out,
+    color $dur-fast $ease-out,
+    box-shadow $dur-fast $ease-out,
+    transform $dur-fast $ease-out;
+
+  @include focus-ring(2px);
+
+  // Al pulsar se hunde un píxel, salvo que abra un overlay: ahí el overlay ya
+  // da el feedback y el hundimiento se lee como un fallo de render.
+  &:active:not(:disabled):not([aria-haspopup]) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  // Iconos de lucide dentro del botón.
+  > svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Variantes
+// ---------------------------------------------------------------------------
+
+.btn--primary {
+  color: var(--gv-primary-contrast);
+  background: var(--gv-primary);
+
+  &:hover:not(:disabled) {
+    background: var(--gv-primary-hover);
+  }
+}
+
+.btn--secondary {
+  color: var(--gv-text);
+  background: var(--gv-surface-2);
+  border-color: var(--gv-border);
+
+  &:hover:not(:disabled) {
+    background: var(--gv-surface-3);
+  }
+}
+
+.btn--outline {
+  color: var(--gv-text);
+  background: transparent;
+  border-color: var(--gv-border-strong);
+
+  &:hover:not(:disabled) {
+    background: var(--gv-surface-2);
+  }
+}
+
+.btn--ghost {
+  color: var(--gv-text-muted);
+  background: transparent;
+
+  &:hover:not(:disabled) {
+    color: var(--gv-text);
+    background: var(--gv-surface-2);
+  }
+
+  // Un botón ghost que está actuado (por ejemplo, un trigger de overlay
+  // abierto) se pinta como hovered para que se entienda.
+  &[aria-expanded="true"],
+  &[data-popup-open] {
+    color: var(--gv-text);
+    background: var(--gv-surface-2);
+  }
+}
+
+.btn--danger {
+  color: var(--gv-danger);
+  background: var(--gv-danger-soft);
+  border-color: transparent;
+
+  &:hover:not(:disabled) {
+    background: var(--gv-danger);
+    color: var(--gv-danger-contrast);
+  }
+
+  &[aria-expanded="true"] {
+    background: var(--gv-danger);
+    color: var(--gv-danger-contrast);
+  }
+}
+
+.btn--solid-danger {
+  color: var(--gv-danger-contrast);
+  background: var(--gv-danger);
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+}
+
+.btn--link {
+  height: auto;
+  padding: 0;
+  color: var(--gv-primary);
+  background: none;
+  border-radius: var(--gv-radius-sm);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+  }
+}
+
+// Degradado de marca: el CTA del login del diseño.
+.btn--cta {
+  color: #ffffff;
+  background: var(--gv-gradient-cta);
+  box-shadow: 0 8px 22px -10px rgba(3, 181, 211, 0.8);
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tamaños
+// ---------------------------------------------------------------------------
+
+.btn--xs {
+  height: 1.5rem;
+  gap: 0.25rem;
+  padding-inline: 0.5rem;
+  font-size: var(--gv-text-xs);
+  border-radius: var(--gv-radius-sm);
+
+  > svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+}
+
+.btn--sm {
+  height: 2rem;
+  gap: 0.25rem;
+  padding-inline: 0.75rem;
+  font-size: var(--gv-text-sm);
+  border-radius: var(--gv-radius-md);
+
+  > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+.btn--lg {
+  height: 3rem;
+  padding-inline: 1.5rem;
+  font-size: var(--gv-text-md);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+// Cuadrados: solo icono.
+.btn--icon {
+  width: 2.5rem;
+  padding-inline: 0;
+}
+
+.btn--icon-xs {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding-inline: 0;
+  border-radius: var(--gv-radius-sm);
+
+  > svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+}
+
+.btn--icon-sm {
+  width: 2rem;
+  height: 2rem;
+  padding-inline: 0;
+}
+
+.btn--icon-lg {
+  width: 3rem;
+  height: 3rem;
+  padding-inline: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Ajuste al contenido cuando el icono va dentro (Base UI marca data-icon)
+// ---------------------------------------------------------------------------
+
+.btn[data-icon="inline-start"] {
+  padding-inline-start: 0.625rem;
+}
+
+.btn[data-icon="inline-end"] {
+  padding-inline-end: 0.625rem;
+}

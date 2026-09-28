@@ -128,15 +128,15 @@ export function LoginForm({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="auth-form">
       {error && <Alert tone="error">{error}</Alert>}
       {verified && <Alert tone="success">{dict.verified}</Alert>}
       {invalidToken && <Alert tone="error">{dict.errorInvalidToken}</Alert>}
       {registered && <Alert tone="success">{dict.registered}</Alert>}
       {resendNotice && <Alert tone="success">{dict.resendSent}</Alert>}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
+      <form onSubmit={handleSubmit} className="auth-form">
+        <div className="auth-form__group">
           <Label htmlFor="email">{dict.email}</Label>
           <Input
             id="email"
@@ -148,7 +148,7 @@ export function LoginForm({
             placeholder="you@example.com"
           />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="auth-form__group">
           <Label htmlFor="password">{dict.password}</Label>
           <Input
             id="password"
@@ -172,7 +172,7 @@ export function LoginForm({
             resetSignal={captchaReset}
           />
         )}
-        <Button type="submit" size="lg" className="w-full" disabled={pending}>
+        <Button type="submit" size="lg" className="u-full" disabled={pending}>
           {pending ? dict.loading : dict.submitLogin}
         </Button>
       </form>
@@ -182,7 +182,7 @@ export function LoginForm({
           type="button"
           onClick={handleResend}
           disabled={pending}
-          className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+          className="auth-form__link"
         >
           {dict.resend} {dict.resendAction}
         </button>
@@ -207,17 +207,13 @@ export function GoogleButton({
   if (!showGoogle) return null
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="h-px flex-1 bg-border" />
-        {dict.or}
-        <span className="h-px flex-1 bg-border" />
-      </div>
+    <div className="auth-divider__group">
+      <div className="auth-divider">{dict.or}</div>
       <Button
         type="button"
         variant="outline"
         size="lg"
-        className="w-full"
+        className="u-full"
         disabled={pending}
         onClick={() =>
           startTransition(() => {
@@ -235,7 +231,7 @@ export function GoogleButton({
 function GoogleIcon() {
   return (
     <svg
-      className="size-4"
+      className="u-icon"
       viewBox="0 0 24 24"
       aria-hidden="true"
       xmlns="http://www.w3.org/2000/svg"
@@ -267,14 +263,9 @@ function Alert({
   tone: "error" | "success"
   children: React.ReactNode
 }) {
-  const styles =
-    tone === "error"
-      ? "border-destructive/50 bg-destructive/10 text-destructive"
-      : "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
-
   return (
     <div
-      className={`rounded-lg border px-3 py-2 text-sm ${styles}`}
+      className={`notice notice--${tone}`}
       role={tone === "error" ? "alert" : "status"}
     >
       {children}

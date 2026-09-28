@@ -1,0 +1,134 @@
+@use "../abstracts" as *;
+
+.card {
+  --_card-pad: var(--gv-space-3);
+  --_card-radius: var(--gv-radius-lg);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--_card-pad);
+  overflow: hidden;
+  font-size: var(--gv-text-base);
+  color: var(--gv-text);
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--_card-radius);
+  box-shadow: var(--gv-shadow-sm);
+  transition:
+    border-color $dur-base $ease-out,
+    box-shadow $dur-base $ease-out,
+    transform $dur-base $ease-out;
+
+  // Con imagen propia la tarjeta es un enlace/tarjeta navegable y gana sombra
+  // al pasar por encima.
+  &[data-interactive="true"] {
+    cursor: pointer;
+
+    @include motion-ok {
+      &:hover {
+        border-color: var(--gv-border-strong);
+        box-shadow: var(--gv-shadow-md);
+        transform: translateY(-2px);
+      }
+    }
+  }
+
+  // Imagen a sangre arriba: los bordes superiores se recortan para que la
+  // foto llegue hasta el borde de la tarjeta.
+  > img:first-child {
+    width: calc(100% + var(--_card-pad) * 2);
+    margin: 0 0 0 calc(var(--_card-pad) * -1);
+    border-radius: 0;
+  }
+
+  > img:last-child {
+    border-radius: 0;
+  }
+}
+
+.card--flat {
+  box-shadow: none;
+}
+
+.card--glass {
+  background: var(--gv-bg-elevated);
+  backdrop-filter: blur(12px);
+}
+
+.card--gradient {
+  background: var(--gv-gradient-glow), var(--gv-surface);
+  border-color: var(--gv-primary-soft);
+}
+
+.card--sm {
+  --_card-pad: var(--gv-space-2);
+}
+
+.card--lg {
+  --_card-pad: var(--gv-space-4);
+}
+
+// ---------------------------------------------------------------------------
+// Elementos
+// ---------------------------------------------------------------------------
+
+.card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gv-space-2);
+  padding: var(--_card-pad) var(--_card-pad) 0;
+}
+
+.card__header--divided {
+  margin-bottom: calc(var(--_card-pad) * -1);
+  padding-bottom: var(--_card-pad);
+  border-bottom: 1px solid var(--gv-border);
+}
+
+.card__title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  font-family: var(--gv-font-heading);
+  font-size: var(--gv-text-lg);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.card__subtitle {
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+  color: var(--gv-text-muted);
+}
+
+.card__description {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.card__action {
+  flex: none;
+  align-self: flex-start;
+}
+
+.card__content {
+  padding: 0 var(--_card-pad);
+
+  &:first-child {
+    padding-top: var(--_card-pad);
+  }
+}
+
+.card__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--gv-space-2);
+  margin-top: auto;
+  padding: var(--_card-pad);
+  background: var(--gv-surface-2);
+  border-top: 1px solid var(--gv-border);
+}

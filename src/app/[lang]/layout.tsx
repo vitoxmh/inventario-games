@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { headers } from "next/headers"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter, Plus_Jakarta_Sans, Geist_Mono } from "next/font/google"
 import { lang } from "next/root-params"
 import { SessionProvider } from "next-auth/react"
 import { ThemeProvider } from "@/components/site/theme-provider"
@@ -10,16 +10,24 @@ import { Toaster } from "@/components/ui/sonner"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale, locales } from "@/lib/i18n/locales"
 import { OG_LOCALE, siteUrl } from "@/lib/seo"
-import "../globals.css"
+import "../globals.scss"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+})
+
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  display: "swap",
 })
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
 })
 
 /*
@@ -84,13 +92,13 @@ export default async function RootLayout({
     <html
       lang={currentLocale}
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${jakarta.variable} ${geistMono.variable}`}
     >
-      <body className="flex min-h-full flex-col">
+      <body>
         <ThemeProvider nonce={nonce}>
           <SessionProvider>
             <SiteHeader />
-            <main className="flex-1">{children}</main>
+            <main>{children}</main>
             <SiteFooter />
             <Toaster />
           </SessionProvider>

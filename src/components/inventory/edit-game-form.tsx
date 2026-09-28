@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useRef, useState, useTransition } from "react"
 import { ArrowLeft, CloudUpload, ImageUp, Plus, Save, Star, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -288,23 +288,23 @@ export function EditGameForm({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="game-form">
       <Link
         href={detailHref}
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="game-form__back"
       >
-        <ArrowLeft className="size-4" aria-hidden="true" />
+        <ArrowLeft aria-hidden="true" />
         {dict.backToGame}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{dict.editTitle}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{game.title}</p>
+        <h1 className="game-form__title">{dict.editTitle}</h1>
+        <p className="game-form__subtitle">{game.title}</p>
       </div>
 
-      <div className="flex flex-col gap-6 rounded-xl border bg-card p-4 sm:p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
+      <div className="game-form__box">
+        <div className="game-form__grid">
+          <div className="game-form__field">
             <Label htmlFor={`edit-title-${game.id}`}>{dict.titleLabel}</Label>
             <Input
               id={`edit-title-${game.id}`}
@@ -319,10 +319,10 @@ export function EditGameForm({
               autoComplete="off"
             />
             {errors.title && (
-              <p className="text-sm text-destructive">{errors.title}</p>
+              <p className="field-error">{errors.title}</p>
             )}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="game-form__field">
             <Label htmlFor={`edit-platform-${game.id}`}>{dict.platform}</Label>
             <Select
               value={platformId}
@@ -336,8 +336,8 @@ export function EditGameForm({
             >
               <SelectTrigger
                 id={`edit-platform-${game.id}`}
-                className="w-full"
                 aria-invalid={errors.platformId ? true : undefined}
+                className="select__trigger--block"
               >
                 <SelectValue />
               </SelectTrigger>
@@ -350,10 +350,10 @@ export function EditGameForm({
               </SelectContent>
             </Select>
             {errors.platformId && (
-              <p className="text-sm text-destructive">{errors.platformId}</p>
+              <p className="field-error">{errors.platformId}</p>
             )}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="game-form__field">
             <Label htmlFor={`edit-genre-${game.id}`}>{dict.genre}</Label>
             <Input
               id={`edit-genre-${game.id}`}
@@ -368,10 +368,10 @@ export function EditGameForm({
               autoComplete="off"
             />
             {errors.genre && (
-              <p className="text-sm text-destructive">{errors.genre}</p>
+              <p className="field-error">{errors.genre}</p>
             )}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="game-form__field">
             <Label htmlFor={`edit-status-${game.id}`}>{dict.statusLabel}</Label>
             <Select
               value={status}
@@ -390,7 +390,7 @@ export function EditGameForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="game-form__field">
             <Label htmlFor={`edit-condition-${game.id}`}>{dict.condition}</Label>
             <Input
               id={`edit-condition-${game.id}`}
@@ -405,10 +405,10 @@ export function EditGameForm({
               autoComplete="off"
             />
             {errors.condition && (
-              <p className="text-sm text-destructive">{errors.condition}</p>
+              <p className="field-error">{errors.condition}</p>
             )}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="game-form__field">
             <Label htmlFor={`edit-hours-${game.id}`}>{dict.playtimeLabel}</Label>
             <Input
               id={`edit-hours-${game.id}`}
@@ -425,10 +425,10 @@ export function EditGameForm({
               aria-invalid={errors.hours ? true : undefined}
             />
             {errors.hours && (
-              <p className="text-sm text-destructive">{errors.hours}</p>
+              <p className="field-error">{errors.hours}</p>
             )}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="game-form__field">
             <Label htmlFor={`edit-price-${game.id}`}>{dict.purchasePrice}</Label>
             <Input
               id={`edit-price-${game.id}`}
@@ -446,10 +446,10 @@ export function EditGameForm({
               aria-invalid={errors.price ? true : undefined}
             />
             {errors.price && (
-              <p className="text-sm text-destructive">{errors.price}</p>
+              <p className="field-error">{errors.price}</p>
             )}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="game-form__field">
             <Label htmlFor={`edit-date-${game.id}`}>{dict.purchaseDate}</Label>
             <Input
               id={`edit-date-${game.id}`}
@@ -462,12 +462,12 @@ export function EditGameForm({
               aria-invalid={errors.date ? true : undefined}
             />
             {errors.date && (
-              <p className="text-sm text-destructive">{errors.date}</p>
+              <p className="field-error">{errors.date}</p>
             )}
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="game-form__field">
           <Label htmlFor={`edit-notes-${game.id}`}>{dict.notes}</Label>
           <Textarea
             id={`edit-notes-${game.id}`}
@@ -480,28 +480,28 @@ export function EditGameForm({
         </div>
 
         {canCustomCover ? (
-          <div className="flex flex-col gap-2">
+          <div className="game-form__field">
             <Label>{dict.customCover}</Label>
-            <p className="text-xs text-muted-foreground">
+            <p className="game-form__subtitle">
               {maxImagesLabel()}
               {images.length > 0 ? ` · ${dict.mainImageHint}` : ""}
             </p>
-            <div className="flex flex-col gap-2">
+            <div className="game-form__field">
               {images.map((url, index) => (
-                <div key={index} className="flex items-center gap-2">
+                <div key={index} className="game-form__photo">
                   {url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={url}
                       alt=""
-                      className="size-12 shrink-0 rounded border object-cover"
+                      className="game-form__thumb"
                     />
                   ) : (
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded border bg-muted text-muted-foreground">
-                      <ImageUp className="size-5" aria-hidden="true" />
+                    <div className="game-form__thumb game-form__thumb--empty">
+                      <ImageUp aria-hidden="true" />
                     </div>
                   )}
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <div className="game-form__photo-body">
                     <Input
                       id={`photo-url-${game.id}-${index}`}
                       type="url"
@@ -513,7 +513,7 @@ export function EditGameForm({
                       placeholder={dict.coverUrlPlaceholder}
                       autoComplete="off"
                     />
-                    <div className="flex gap-1.5">
+                    <div className="game-form__photo-actions">
                       <Button
                         type="button"
                         variant="ghost"
@@ -522,13 +522,10 @@ export function EditGameForm({
                         aria-label={dict.makeMain}
                         aria-pressed={index === 0}
                         title={dict.makeMain}
-                        className={cn(
-                          "text-muted-foreground",
-                          index === 0 && "text-amber-500",
-                        )}
+                        className={cn("photo-star", index === 0 && "photo-star--on")}
                       >
                         <Star
-                          className={cn("size-4", index === 0 && "fill-current")}
+                          className={cn(index === 0 && "fill-current")}
                           aria-hidden="true"
                         />
                       </Button>
@@ -537,7 +534,7 @@ export function EditGameForm({
                         variant="ghost"
                         size="sm"
                         onClick={() => removeImage(index)}
-                        className="text-muted-foreground"
+                        className="photo-action"
                       >
                         <Trash2 aria-hidden="true" />
                         {dict.removeImage}
@@ -553,8 +550,8 @@ export function EditGameForm({
                     tabIndex={0}
                     aria-label={dict.dragDropPhotos}
                     className={cn(
-                      "flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground outline-none transition-colors hover:border-ring/70 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
-                      dragActive && "border-ring bg-accent/60 text-foreground",
+                      dragActive && "game-form__drop--active",
+                      uploading && "game-form__drop--uploading",
                     )}
                     onClick={() => dropInputRef.current?.click()}
                     onKeyDown={(event) => {
@@ -578,14 +575,11 @@ export function EditGameForm({
                       void handleFiles(event.dataTransfer.files)
                     }}
                   >
-                    <CloudUpload
-                      className={cn("size-6", uploading && "animate-pulse")}
-                      aria-hidden="true"
-                    />
+                    <CloudUpload aria-hidden="true" />
                     <span>
                       {uploading ? dict.uploading : dict.dragDropPhotos}
                     </span>
-                    <span className="text-xs">{maxImagesLabel()}</span>
+                    <span className="game-form__drop-note">{maxImagesLabel()}</span>
                   </div>
                   <input
                     ref={dropInputRef}
@@ -604,7 +598,7 @@ export function EditGameForm({
                     size="sm"
                     onClick={addImage}
                     disabled={uploading}
-                    className="w-fit"
+                    className="u-fit"
                   >
                     <Plus aria-hidden="true" />
                     {dict.addImage}
@@ -614,19 +608,18 @@ export function EditGameForm({
             </div>
           </div>
         ) : (
-          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <p className="game-form__locked">
             {dict.coverProOnly}
           </p>
         )}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="game-form__actions">
           <Button
             type="button"
             onClick={save}
             disabled={pending || uploading}
-            className="inline-flex items-center gap-1.5"
           >
-            <Save className="size-4" aria-hidden="true" />
+            <Save className="u-icon" aria-hidden="true" />
             {dict.save}
           </Button>
           <Button

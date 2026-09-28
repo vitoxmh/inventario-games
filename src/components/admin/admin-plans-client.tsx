@@ -268,15 +268,12 @@ export function AdminPlansClient({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h2 className="text-2xl font-semibold tracking-tight">{dict.plans}</h2>
+    <div className="panel">
+      <h2 className="panel__title">{dict.plans}</h2>
 
-      <form
-        onSubmit={add}
-        className="flex flex-wrap items-end gap-2 rounded-xl border bg-card p-3"
-      >
-        <div className="flex flex-col gap-1">
-          <label htmlFor="plan-name-es" className="text-xs font-medium text-muted-foreground">
+      <form onSubmit={add} className="panel__form">
+        <div className="field">
+          <label htmlFor="plan-name-es" className="field__label">
             {dict.planNameEs}
           </label>
           <Input
@@ -286,13 +283,13 @@ export function AdminPlansClient({
               setNewPlan((prev) => ({ ...prev, nameEs: event.target.value }))
             }
             maxLength={60}
-            className="h-8 w-40"
+            width="w-40"
             autoComplete="off"
             placeholder="Ej: Gratis"
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="plan-name-en" className="text-xs font-medium text-muted-foreground">
+        <div className="field">
+          <label htmlFor="plan-name-en" className="field__label">
             {dict.planNameEn}
           </label>
           <Input
@@ -302,13 +299,13 @@ export function AdminPlansClient({
               setNewPlan((prev) => ({ ...prev, nameEn: event.target.value }))
             }
             maxLength={60}
-            className="h-8 w-40"
+            width="w-40"
             autoComplete="off"
             placeholder="Ej: Free"
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="plan-new-games" className="text-xs font-medium text-muted-foreground">
+        <div className="field">
+          <label htmlFor="plan-new-games" className="field__label">
             {dict.gameLimit}
           </label>
           <Input
@@ -320,12 +317,12 @@ export function AdminPlansClient({
             onChange={(event) =>
               setNewPlan((prev) => ({ ...prev, gameLimit: event.target.value }))
             }
-            className="h-8 w-24"
+            width="w-24"
             placeholder={dict.unlimited}
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="plan-new-images" className="text-xs font-medium text-muted-foreground">
+        <div className="field">
+          <label htmlFor="plan-new-images" className="field__label">
             {dict.imageLimit}
           </label>
           <Input
@@ -338,11 +335,11 @@ export function AdminPlansClient({
             onChange={(event) =>
               setNewPlan((prev) => ({ ...prev, imageLimit: event.target.value }))
             }
-            className="h-8 w-20"
+            width="w-20"
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="plan-new-duration" className="text-xs font-medium text-muted-foreground">
+        <div className="field">
+          <label htmlFor="plan-new-duration" className="field__label">
             {dict.durationDays}
           </label>
           <Input
@@ -355,7 +352,7 @@ export function AdminPlansClient({
             onChange={(event) =>
               setNewPlan((prev) => ({ ...prev, durationDays: event.target.value }))
             }
-            className="h-8 w-20"
+            width="w-20"
           />
         </div>
         <Button
@@ -365,14 +362,13 @@ export function AdminPlansClient({
             newPlan.nameEs.trim().length === 0 ||
             !durationOk(newPlan.durationDays, durationRange)
           }
-          className="inline-flex items-center gap-1.5"
         >
-          <Plus className="size-4" aria-hidden="true" />
+          <Plus className="u-icon" aria-hidden="true" />
           {dict.addPlan}
         </Button>
       </form>
 
-      <div className="overflow-x-auto rounded-xl border bg-card">
+      <div className="panel__scroll">
         <Table>
           <TableHeader>
             <TableRow>
@@ -383,14 +379,14 @@ export function AdminPlansClient({
               <TableHead>{dict.durationDays}</TableHead>
               <TableHead>{dict.pricing}</TableHead>
               <TableHead>{dict.plan}</TableHead>
-              <TableHead className="text-center">{dict.gamesCount}*</TableHead>
-              <TableHead className="text-right">{dict.actions}</TableHead>
+              <TableHead className="row-actions--center">{dict.gamesCount}*</TableHead>
+              <TableHead className="row-actions">{dict.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {plans.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="empty-cell">
                   {dict.noGames}
                 </TableCell>
               </TableRow>
@@ -411,14 +407,15 @@ export function AdminPlansClient({
                 return (
                   <TableRow key={plan.slug}>
                     <TableCell>
-                      <div className="flex flex-col gap-1">
+                      <div className="field">
                         <Input
                           value={draft.nameEs}
                           onChange={(event) =>
                             setDraft(plan.slug, { nameEs: event.target.value })
                           }
                           maxLength={60}
-                          className="h-7 w-40"
+                          size="sm"
+                          width="w-40"
                           autoComplete="off"
                           aria-label={dict.planNameEs}
                         />
@@ -428,14 +425,15 @@ export function AdminPlansClient({
                             setDraft(plan.slug, { nameEn: event.target.value })
                           }
                           maxLength={60}
-                          className="h-7 w-40"
+                          size="sm"
+                          width="w-40"
                           autoComplete="off"
                           aria-label={dict.planNameEn}
                         />
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col items-start gap-1">
+                      <div className="cell-stack">
                         <Badge variant="secondary">{plan.slug}</Badge>
                         {plan.paid && <Badge variant="outline">paid</Badge>}
                       </div>
@@ -449,7 +447,7 @@ export function AdminPlansClient({
                         onChange={(event) =>
                           setDraft(plan.slug, { gameLimit: event.target.value })
                         }
-                        className="h-7 w-24"
+                        size="sm" width="w-24"
                         placeholder={dict.unlimited}
                         aria-label={dict.gameLimit}
                       />
@@ -464,7 +462,7 @@ export function AdminPlansClient({
                         onChange={(event) =>
                           setDraft(plan.slug, { imageLimit: event.target.value })
                         }
-                        className="h-7 w-20"
+                        size="sm" width="w-20"
                         aria-label={dict.imageLimit}
                       />
                     </TableCell>
@@ -485,7 +483,7 @@ export function AdminPlansClient({
                         onChange={(event) =>
                           setDraft(plan.slug, { durationDays: event.target.value })
                         }
-                        className="h-7 w-20"
+                        size="sm" width="w-20"
                         aria-label={dict.durationDays}
                       />
                     </TableCell>
@@ -498,8 +496,8 @@ export function AdminPlansClient({
                         * leerse como $4.99, y no obligar al admin a hacer la
                         * división mental.
                         */}
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5">
+                      <div className="cell-stack">
+                        <div className="cell-row">
                           <Input
                             inputMode="numeric"
                             value={draft.priceCents}
@@ -507,16 +505,16 @@ export function AdminPlansClient({
                               setDraft(plan.slug, { priceCents: event.target.value })
                             }
                             placeholder="0"
-                            className="h-7 w-20"
+                            size="sm" width="w-20"
                             autoComplete="off"
                             aria-label={dict.stripePrice}
                           />
-                          <span className="whitespace-nowrap text-xs text-muted-foreground">
+                          <span className="cell-label">
                             {formatUsdMinor(intOrNull(draft.priceCents), "en") ??
                               dict.priceUnset}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="cell-row">
                           <Input
                             inputMode="numeric"
                             value={draft.mpPriceMinor}
@@ -524,11 +522,11 @@ export function AdminPlansClient({
                               setDraft(plan.slug, { mpPriceMinor: event.target.value })
                             }
                             placeholder="0"
-                            className="h-7 w-20"
+                            size="sm" width="w-20"
                             autoComplete="off"
                             aria-label={dict.mpPrice}
                           />
-                          <span className="whitespace-nowrap text-xs text-muted-foreground">
+                          <span className="cell-label">
                             {formatMinor(intOrNull(draft.mpPriceMinor), mpCurrency, dict) ??
                               dict.priceUnset}
                           </span>
@@ -539,14 +537,14 @@ export function AdminPlansClient({
                             setDraft(plan.slug, { stripeProductId: event.target.value })
                           }
                           placeholder="prod_..."
-                          className="h-7 w-44 font-mono text-xs"
+                          size="sm" width="w-44" mono
                           autoComplete="off"
                           aria-label={dict.stripeProductId}
                         />
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <div className="cell-row cell-row--wide">
                         <Switch
                           checked={draft.active}
                           onCheckedChange={(checked) =>
@@ -554,16 +552,16 @@ export function AdminPlansClient({
                           }
                           aria-label={dict.plan}
                         />
-                        <span className="text-sm text-muted-foreground">
+                        <span className="cell-text">
                           {draft.active ? dict.active : dict.inactive}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-center tabular-nums text-muted-foreground">
+                    <TableCell className="table__cell--numeric table__cell--muted">
                       {plan.userCount}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <TableCell className="row-actions">
+                      <div className="row-actions">
                         <Button
                           type="button"
                           size="sm"
@@ -572,16 +570,15 @@ export function AdminPlansClient({
                             pending || !dirty || !durationOk(draft.durationDays, durationRange)
                           }
                           onClick={() => save(plan.slug)}
-                          className="inline-flex items-center gap-1.5"
                         >
-                          <Save className="size-3.5" aria-hidden="true" />
+                          <Save className="icon-xs" aria-hidden="true" />
                           {dict.save}
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger
                             render={<Button variant="ghost" size="icon-sm" />}
                           >
-                            <Trash2 className="text-destructive" aria-hidden="true" />
+                            <Trash2 className="icon-danger" aria-hidden="true" />
                             <span className="sr-only">{dict.deletePlan}</span>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -614,10 +611,10 @@ export function AdminPlansClient({
           </TableBody>
         </Table>
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p className="panel__note">
         *{dict.deletePlanBodyHint}
       </p>
-      <p className="text-sm text-muted-foreground">{dict.durationDaysHint}</p>
+      <p className="panel__note">{dict.durationDaysHint}</p>
     </div>
   )
 }

@@ -161,7 +161,7 @@ export function Turnstile({
       />
       {/* interaction-only no pinta nada para el visitante legítimo: sin alto
           reservado para que el layout no salte cuando Cloudflare sí lo muestra. */}
-      <div ref={containerRef} className="min-h-0" />
+      <div ref={containerRef}  />
     </>
   )
 }

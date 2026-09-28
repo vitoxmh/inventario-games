@@ -53,17 +53,17 @@ export default async function InventoryPage() {
   const inventoryDict = dict.inventory
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="u-stack u-stack--lg">
+      <div className="page-head">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">
+          <h2 className="page-title">
             {dict.app.dashboard}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="page-lead">
             {dict.app.totalGames}: {games.length}
             {limit !== null ? ` / ${limit}` : ""}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="page-lead">
             {dict.app.totalPhotos}: {totalImages} · {dict.app.photosPerGame}:{" "}
             {imageLimit}
           </p>
@@ -72,13 +72,13 @@ export default async function InventoryPage() {
       </div>
 
       {games.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed p-12 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <Gamepad2 className="size-6 text-muted-foreground" aria-hidden="true" />
+        <div className="empty">
+          <div className="empty__icon">
+            <Gamepad2 aria-hidden="true" />
           </div>
           <div>
-            <p className="font-medium">{dict.app.emptyTitle}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="empty__title">{dict.app.emptyTitle}</p>
+            <p className="page-lead page-lead--spaced">
               {dict.app.emptyDescription}
             </p>
           </div>

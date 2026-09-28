@@ -1,0 +1,367 @@
+@use "../abstracts" as *;
+
+/* Rejilla del inventario, filtros, tarjeta de juego, paginación y estado vacío. */
+.inventory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.inventory__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inventory__search {
+  position: relative;
+}
+
+.inventory__search-icon {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 0.625rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--gv-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.inventory__search .input {
+  padding-inline-start: 2.125rem;
+}
+
+.inventory__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inventory__separator {
+  display: none;
+  width: 1px;
+  height: 1.25rem;
+  margin-inline: 0.25rem;
+  background: var(--gv-border);
+
+  @include from($bp-sm) {
+    display: block;
+  }
+}
+
+.inventory__control-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--gv-text-muted);
+}
+
+.inventory__reset-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.inventory__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gv-space-3);
+
+  @include from($bp-sm) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @include from($bp-lg) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+// --- Tarjeta de juego -------------------------------------------------------
+
+.game-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  transition:
+    border-color $dur-base $ease-out,
+    box-shadow $dur-base $ease-out;
+}
+
+.game-card:hover {
+  border-color: var(--gv-border-strong);
+  box-shadow: var(--gv-shadow-md);
+}
+
+.game-card__cover {
+  display: block;
+  position: relative;
+}
+
+.game-card__cover-image {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  transition: opacity $dur-base $ease-out;
+
+  .game-card__cover:hover & {
+    opacity: 0.9;
+  }
+}
+
+.game-card__cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: var(--gv-surface-2);
+
+  > svg {
+    width: 2.5rem;
+    height: 2.5rem;
+    color: var(--gv-text-subtle);
+  }
+}
+
+.game-card__thumbs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--gv-surface-2);
+  border-top: 1px solid var(--gv-border);
+}
+
+.game-card__thumb {
+  flex: 1;
+  width: 2rem;
+  height: 2rem;
+  object-fit: cover;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-sm);
+}
+
+.game-card__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.game-card__title {
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+  @include truncate;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.game-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.game-card__platform {
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-muted);
+  @include truncate;
+}
+
+.game-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.game-card__playtime {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-muted);
+
+  > svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+}
+
+.game-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+// --- Paginación -------------------------------------------------------------
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pagination__group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination__label {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.pagination__count {
+  font-size: var(--gv-text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--gv-text-muted);
+}
+
+// --- Estado vacío -----------------------------------------------------------
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gv-space-3);
+  padding: var(--gv-space-5) var(--gv-space-3);
+  text-align: center;
+  border: 1px dashed var(--gv-border-strong);
+  border-radius: var(--gv-radius-lg);
+}
+
+.empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  color: var(--gv-text-muted);
+  background: var(--gv-surface-2);
+  border-radius: var(--gv-radius-full);
+
+  > svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+.empty__title {
+  font-weight: 500;
+}
+
+.empty__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.empty--sm {
+  padding: var(--gv-space-4) var(--gv-space-3);
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+// --- Galería / lightbox -----------------------------------------------------
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gv-space-2);
+
+  @include from($bp-sm) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+// El botón es el contenedor del hover: la miniatura escala por dentro.
+.gallery__item {
+  overflow: hidden;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-md);
+
+  @include focus-ring(2px);
+}
+
+.gallery__thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  transition: transform 300ms $ease-out;
+
+  .gallery__item:hover & {
+    transform: scale(1.05);
+  }
+}
+
+.lightbox__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding-inline: var(--gv-space-6);
+}
+
+.lightbox__image {
+  max-width: 100%;
+  max-height: 85vh;
+  border-radius: var(--gv-radius-md);
+  object-fit: contain;
+}
+
+// Controles sobre la imagen: siempre en primer plano y en texto claro, porque
+// el fondo es la foto y no el tema.
+.lightbox__control {
+  position: absolute;
+  color: #fff;
+  background: transparent;
+
+  &:hover {
+    color: #fff;
+    background: rgb(255 255 255 / 10%);
+  }
+}
+
+.lightbox__control--close {
+  inset-block-start: var(--gv-space-2);
+  inset-inline-end: var(--gv-space-2);
+}
+
+.lightbox__control--prev,
+.lightbox__control--next {
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+}
+
+.lightbox__control--prev {
+  inset-inline-start: var(--gv-space-2);
+}
+
+.lightbox__control--next {
+  inset-inline-end: var(--gv-space-2);
+}
+
+.lightbox__counter {
+  position: absolute;
+  inset-block-start: var(--gv-space-2);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 0.75rem;
+  font-size: var(--gv-text-xs);
+  color: #fff;
+  background: rgb(255 255 255 / 10%);
+  border-radius: var(--gv-radius-full);
+}
+

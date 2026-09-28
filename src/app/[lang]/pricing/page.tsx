@@ -52,21 +52,21 @@ export default async function PricingPage() {
   })
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-24 sm:px-6">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <h1 className="text-balance text-4xl font-bold tracking-tight">
-          {dict.pricing.title}
-        </h1>
-        <p className="text-muted-foreground">{dict.pricing.subtitle}</p>
-      </div>
-      <PricingCards
-        pricing={dict.pricing}
-        cards={cards}
-        paths={{
-          signup: `${localePrefix}/signup`,
-          billing: `${localePrefix}/app/billing`,
-        }}
-      />
+    <div className="landing">
+      <section className="landing__section landing__section--center">
+        <h1 className="landing__title">{dict.pricing.title}</h1>
+        <p className="landing__note">{dict.pricing.subtitle}</p>
+      </section>
+      <section className="landing__section">
+        <PricingCards
+          pricing={dict.pricing}
+          cards={cards}
+          paths={{
+            signup: `${localePrefix}/signup`,
+            billing: `${localePrefix}/app/billing`,
+          }}
+        />
+      </section>
     </div>
   )
 }

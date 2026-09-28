@@ -1,0 +1,100 @@
+@use "../abstracts" as *;
+
+/*
+ * Campos de formulario. Input, textarea y label comparten bloque para que un
+ * formulario no tenga que repetirse reglas en cada control. Los mensajes de
+ * error son un `p` suelto debajo del campo, por eso viven como utilidad.
+ */
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--gv-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.input,
+.textarea {
+  @include field-base;
+}
+
+.input {
+  height: 2rem;
+
+  &::file-selector-button {
+    display: inline-flex;
+    align-items: center;
+    height: 1.5rem;
+    margin-right: 0.5rem;
+    padding-inline: 0.5rem;
+    font-size: var(--gv-text-sm);
+    font-weight: 600;
+    color: var(--gv-text);
+    cursor: pointer;
+    background: var(--gv-surface-3);
+    border: 0;
+    border-radius: var(--gv-radius-sm);
+  }
+}
+
+.textarea {
+  min-height: 4rem;
+  padding: 0.5rem 0.625rem;
+  line-height: 1.25;
+  field-sizing: content;
+}
+
+.field-error {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-danger);
+}
+
+.field-hint {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-subtle);
+}
+
+// Tamaños compactos para las tablas del panel de admin, donde los inputs van
+// en rejilla y el alto de la fila marca el ritmo.
+.input--sm {
+  height: 1.75rem;
+  padding-inline: 0.5rem;
+  font-size: var(--gv-text-sm);
+}
+
+.input--xs {
+  height: 1.5rem;
+  padding-inline: 0.5rem;
+  font-size: var(--gv-text-xs);
+}
+
+.input--mono {
+  font-family: var(--gv-font-mono);
+  font-size: var(--gv-text-xs);
+}
+
+.input--block {
+  width: 100%;
+}
+
+// Anchos fijos para los formularios horizontales del admin.
+.input--w-20 {
+  width: 5rem;
+}
+
+.input--w-24 {
+  width: 6rem;
+}
+
+.input--w-40 {
+  width: 10rem;
+}
+
+.input--w-44 {
+  width: 11rem;
+}

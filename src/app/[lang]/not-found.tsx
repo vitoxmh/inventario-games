@@ -28,9 +28,9 @@ export default async function NotFound() {
   const currentLocale = await lang()
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 px-4 py-24 text-center sm:px-6">
-      <h1 className="text-4xl font-bold tracking-tight">{dict.notFound.title}</h1>
-      <p className="text-muted-foreground">{dict.notFound.description}</p>
+    <div className="status-page">
+      <h1 className="status-page__code">{dict.notFound.title}</h1>
+      <p className="status-page__text">{dict.notFound.description}</p>
       <Link href={`/${currentLocale}`} className={buttonVariants()}>
         <Home aria-hidden="true" />
         {dict.notFound.home}

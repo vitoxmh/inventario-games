@@ -1,0 +1,45 @@
+/*
+ * Único punto de entrada de estilos de la aplicación.
+ *
+ * Todo lo partial se carga desde aquí, en cascada: tokens → base → componentes.
+ * El orden importa porque los componentes se apoyan en los tokens y en el
+ * reset, y no al revés.
+ *
+ * Este archivo es el único import de estilos del proyecto (recomendación de la
+ * guía de CSS de Next: un solo punto de entrada mantiene el orden predecible).
+ */
+
+// 1. Tokens y bases
+@use "../styles/tokens";
+@use "../styles/base";
+@use "../styles/utilities";
+
+// 2. Componentes de interfaz
+@use "../styles/components/button";
+@use "../styles/components/card";
+@use "../styles/components/badge";
+@use "../styles/components/form";
+@use "../styles/components/controls";
+@use "../styles/components/feedback";
+@use "../styles/components/avatar";
+@use "../styles/components/tabs";
+@use "../styles/components/table";
+@use "../styles/components/dialog";
+@use "../styles/components/sheet";
+@use "../styles/components/select";
+@use "../styles/components/dropdown";
+@use "../styles/components/toaster";
+@use "../styles/components/notice";
+@use "../styles/components/plans";
+@use "../styles/components/inventory";
+@use "../styles/components/panel";
+@use "../styles/components/stats";
+@use "../styles/components/game-form";
+
+// 3. Layouts
+@use "../styles/layouts/site-shell";
+@use "../styles/layouts/app-shell";
+@use "../styles/layouts/auth";
+@use "../styles/layouts/landing";
+@use "../styles/layouts/status";
+@use "../styles/layouts/page";

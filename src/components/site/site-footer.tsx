@@ -8,15 +8,15 @@ export async function SiteFooter() {
   const currentLocale = await lang()
 
   return (
-    <footer className="border-t py-10">
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6">
-        <Link href={`/${currentLocale}`} className="shrink-0">
+    <footer className="site-footer">
+      <div className="site-footer__inner container">
+        <Link href={`/${currentLocale}`} className="u-grow">
           <Logo name={dict.site.name} />
         </Link>
-        <p className="text-sm text-muted-foreground">
+        <p className="site-footer__note">
           © {new Date().getFullYear()} {dict.site.name}. {dict.footer.rights}
         </p>
-        <p className="text-sm text-muted-foreground">{dict.footer.madeWith}</p>
+        <p className="site-footer__note">{dict.footer.madeWith}</p>
       </div>
     </footer>
   )

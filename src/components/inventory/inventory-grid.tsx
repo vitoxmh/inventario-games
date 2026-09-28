@@ -118,13 +118,10 @@ export function InventoryGrid({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
+    <div className="inventory">
+      <div className="inventory__filters">
+        <div className="inventory__search">
+          <Search className="inventory__search-icon" aria-hidden="true" />
           <Input
             value={query}
             onChange={(event) => {
@@ -132,11 +129,10 @@ export function InventoryGrid({
               setPage(1)
             }}
             placeholder={dict.searchCollection}
-            className="pl-9"
             autoComplete="off"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="inventory__controls">
           <Select
             value={status}
             onValueChange={(value) => {
@@ -154,7 +150,7 @@ export function InventoryGrid({
             }
           >
             <SelectTrigger size="sm" aria-label={dict.filterStatus}>
-              <ListFilter className="text-muted-foreground" aria-hidden="true" />
+              <ListFilter className="inventory__control-icon" aria-hidden="true" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -183,7 +179,7 @@ export function InventoryGrid({
             }
           >
             <SelectTrigger size="sm" aria-label={dict.filterPlatform}>
-              <Gamepad2 className="text-muted-foreground" aria-hidden="true" />
+              <Gamepad2 className="inventory__control-icon" aria-hidden="true" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -208,7 +204,7 @@ export function InventoryGrid({
             }
           >
             <SelectTrigger size="sm" aria-label={dict.filterGenre}>
-              <Shapes className="text-muted-foreground" aria-hidden="true" />
+              <Shapes className="inventory__control-icon" aria-hidden="true" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -220,7 +216,7 @@ export function InventoryGrid({
               ))}
             </SelectContent>
           </Select>
-          <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden="true" />
+          <span className="inventory__separator" aria-hidden="true" />
           <Select
             value={sort}
             onValueChange={(value) => {
@@ -242,7 +238,7 @@ export function InventoryGrid({
             }
           >
             <SelectTrigger size="sm" aria-label={dict.sortBy}>
-              <ArrowUpDown className="text-muted-foreground" aria-hidden="true" />
+              <ArrowUpDown className="inventory__control-icon" aria-hidden="true" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -258,9 +254,8 @@ export function InventoryGrid({
               variant="ghost"
               size="sm"
               onClick={resetFilters}
-              className="inline-flex items-center gap-1.5"
             >
-              <RotateCcw className="size-3.5" aria-hidden="true" />
+              <RotateCcw className="inventory__reset-icon" aria-hidden="true" />
               {dict.clearFilters}
             </Button>
           )}
@@ -268,19 +263,18 @@ export function InventoryGrid({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed p-12 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <Gamepad2 className="size-6 text-muted-foreground" aria-hidden="true" />
+        <div className="empty">
+          <div className="empty__icon">
+            <Gamepad2 aria-hidden="true" />
           </div>
-          <div>
-            <p className="font-medium">{dict.noResultsFilter}</p>
+          <div className="empty__body">
+            <p className="empty__title">{dict.noResultsFilter}</p>
             {hasFilters && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={resetFilters}
-                className="mt-3"
               >
                 <RotateCcw aria-hidden="true" />
                 {dict.clearFilters}
@@ -290,131 +284,121 @@ export function InventoryGrid({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {shown.map((game) => (
-            <div
-              key={game.id}
-              className="flex flex-col overflow-hidden rounded-xl border bg-card"
-            >
-              <Link
-                href={`/${lang}/app/games/${game.id}`}
-                className="group/cover block"
-                aria-label={game.title}
-              >
-                {game.images[0] ?? game.coverImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={game.images[0] ?? game.coverImageUrl ?? ""}
-                    alt={game.title}
-                    className="aspect-[3/4] w-full object-cover transition-opacity group-hover/cover:opacity-90"
-                  />
-                ) : (
-                  <div className="flex aspect-[3/4] w-full items-center justify-center bg-muted">
-                    <Gamepad2
-                      className="size-10 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </div>
-                )}
-              </Link>
-              {game.images.length > 1 && (
-                <div className="flex gap-1 border-t bg-muted/40 px-1 py-1">
-                  {game.images.map((url) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={url}
-                      src={url}
-                      alt=""
-                      className="size-8 flex-1 rounded border object-cover"
-                    />
-                  ))}
-                </div>
-              )}
-              <div className="flex flex-1 flex-col gap-2 p-3">
+          <div className="inventory__grid">
+            {shown.map((game) => (
+              <article key={game.id} className="game-card">
                 <Link
                   href={`/${lang}/app/games/${game.id}`}
-                  className="truncate text-sm font-medium hover:underline"
-                  title={game.title}
+                  className="game-card__cover"
+                  aria-label={game.title}
                 >
-                  {game.title}
-                </Link>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-xs text-muted-foreground">
-                    {game.platform}
-                    {game.genre ? ` · ${game.genre}` : ""}
-                  </p>
-                  <Badge variant="secondary" className="shrink-0">
-                    {dict.statuses[game.status]}
-                  </Badge>
-                </div>
-                <div className="mt-auto flex items-center justify-between gap-2">
-                  {game.playtimeMin != null && game.playtimeMin > 0 ? (
-                    <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="size-3" aria-hidden="true" />
-                      {Math.round(game.playtimeMin / 60)} {dict.playtime}
-                    </p>
+                  {game.images[0] ?? game.coverImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={game.images[0] ?? game.coverImageUrl ?? ""}
+                      alt={game.title}
+                      className="game-card__cover-image"
+                    />
                   ) : (
-                    <span />
+                    <div className="game-card__cover-placeholder">
+                      <Gamepad2 aria-hidden="true" />
+                    </div>
                   )}
-                  <GameCardActions
-                    game={game}
-                    dict={dict}
-                    lang={lang}
-                  />
+                </Link>
+                {game.images.length > 1 && (
+                  <div className="game-card__thumbs">
+                    {game.images.map((url) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={url}
+                        src={url}
+                        alt=""
+                        className="game-card__thumb"
+                      />
+                    ))}
+                  </div>
+                )}
+                <div className="game-card__body">
+                  <Link
+                    href={`/${lang}/app/games/${game.id}`}
+                    className="game-card__title"
+                    title={game.title}
+                  >
+                    {game.title}
+                  </Link>
+                  <div className="game-card__meta">
+                    <p className="game-card__platform">
+                      {game.platform}
+                      {game.genre ? ` · ${game.genre}` : ""}
+                    </p>
+                    <Badge variant="secondary">{dict.statuses[game.status]}</Badge>
+                  </div>
+                  <div className="game-card__footer">
+                    {game.playtimeMin != null && game.playtimeMin > 0 ? (
+                      <p className="game-card__playtime">
+                        <Clock aria-hidden="true" />
+                        {Math.round(game.playtimeMin / 60)} {dict.playtime}
+                      </p>
+                    ) : (
+                      <span />
+                    )}
+                    <GameCardActions
+                      game={game}
+                      dict={dict}
+                      lang={lang}
+                    />
+                  </div>
                 </div>
-              </div>
+              </article>
+            ))}
+          </div>
+          <div className="pagination">
+            <div className="pagination__group">
+              <span className="pagination__label">{dict.perPage}</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(value) => value != null && changePageSize(Number(value))}
+                itemToStringLabel={(value) => value}
+              >
+                <SelectTrigger size="sm" aria-label={dict.perPage}>
+                  <Rows3 className="inventory__control-icon" aria-hidden="true" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZES.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {String(size)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-))}
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">{dict.perPage}</span>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(value) => value != null && changePageSize(Number(value))}
-              itemToStringLabel={(value) => value}
-            >
-              <SelectTrigger size="sm" aria-label={dict.perPage}>
-                <Rows3 className="text-muted-foreground" aria-hidden="true" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZES.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {String(size)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground tabular-nums">
-              {filtered.length}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={safePage <= 1}
-              onClick={() => setPage(safePage - 1)}
-            >
-              <ChevronLeft aria-hidden="true" />
-              {dict.prev}
-            </Button>
-            <span className="text-sm text-muted-foreground tabular-nums">
-              {safePage} / {pages}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={safePage >= pages}
-              onClick={() => setPage(safePage + 1)}
-            >
-              {dict.next}
-              <ChevronRight aria-hidden="true" />
-            </Button>
-          </div>
+            <div className="pagination__group">
+              <span className="pagination__count">{filtered.length}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={safePage <= 1}
+                onClick={() => setPage(safePage - 1)}
+              >
+                <ChevronLeft aria-hidden="true" />
+                {dict.prev}
+              </Button>
+              <span className="pagination__count">
+                {safePage} / {pages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={safePage >= pages}
+                onClick={() => setPage(safePage + 1)}
+              >
+                {dict.next}
+                <ChevronRight aria-hidden="true" />
+              </Button>
+            </div>
           </div>
         </>
       )}

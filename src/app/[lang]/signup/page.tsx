@@ -37,10 +37,10 @@ export default async function SignupPage(
   const locale = isLocale(currentLocale) ? currentLocale : "es"
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-24 sm:px-6">
+    <div className="auth-page">
       <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">{dict.auth.signupTitle}</CardTitle>
+        <CardHeader className="notice--center">
+          <CardTitle className="u-balance">{dict.auth.signupTitle}</CardTitle>
           <CardDescription>{dict.auth.signupDescription}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -56,11 +56,11 @@ export default async function SignupPage(
           />
         </CardContent>
       </Card>
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="auth-form__aside">
         {dict.auth.hasAccount}{" "}
         <Link
           href={`/${locale}/login`}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
+          className="auth-form__link auth-form__link-strong"
         >
           {dict.auth.loginLink}
         </Link>

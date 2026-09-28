@@ -1,0 +1,140 @@
+@use "../abstracts" as *;
+
+/* Landing pública. */
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-5);
+  padding-bottom: var(--gv-space-5);
+}
+
+.landing__section {
+  width: 100%;
+  padding-inline: var(--gv-space-3);
+
+  @include from($bp-sm) {
+    padding-inline: var(--gv-space-4);
+  }
+}
+
+.landing__section--center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gv-space-3);
+  text-align: center;
+}
+
+.landing__section--tight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.landing__section--spaced {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-4);
+}
+
+.landing__title {
+  max-width: 48rem;
+  font-size: var(--gv-text-3xl);
+
+  @include from($bp-sm) {
+    font-size: var(--gv-text-4xl);
+  }
+}
+
+.landing__lead {
+  max-width: 36rem;
+  font-size: var(--gv-text-lg);
+  color: var(--gv-text-muted);
+}
+
+.landing__heading {
+  font-size: var(--gv-text-2xl);
+
+  @include from($bp-md) {
+    font-size: var(--gv-text-3xl);
+  }
+}
+
+.landing__subheading {
+  max-width: 42rem;
+  font-size: var(--gv-text-2xl);
+}
+
+.landing__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.landing__features {
+  display: grid;
+  gap: var(--gv-space-3);
+  grid-template-columns: 1fr;
+
+  @include from($bp-sm) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include from($bp-lg) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.landing__note {
+  color: var(--gv-text-muted);
+}
+
+/* Tarjeta de característica del home. */
+.feature {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: var(--gv-space-3);
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+
+  @include motion-ok {
+    transition:
+      border-color $dur-base $ease-out,
+      transform $dur-base $ease-out;
+  }
+
+  &:hover {
+    border-color: var(--gv-primary-soft);
+    transform: translateY(-2px);
+  }
+}
+
+.feature__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--gv-primary);
+  background: var(--gv-primary-soft);
+  border-radius: var(--gv-radius-md);
+
+  > svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.feature__title {
+  font-size: var(--gv-text-md);
+  font-weight: 700;
+}
+
+.feature__text {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}

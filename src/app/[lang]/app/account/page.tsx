@@ -46,25 +46,25 @@ export default async function AccountPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-2xl">{dict.app.account}</CardTitle>
+        <CardTitle className="page-title">{dict.app.account}</CardTitle>
         <CardDescription>{session.user.email}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <dl className="divide-y rounded-lg border">
-          <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <dt className="text-sm text-muted-foreground">
+      <CardContent className="u-stack u-stack--lg">
+        <dl className="data-list">
+          <div className="data-list__row">
+            <dt className="data-list__key">
               {dict.app.emailLabel}
             </dt>
-            <dd className="text-sm font-medium">{session.user.email}</dd>
+            <dd className="data-list__value">{session.user.email}</dd>
           </div>
-          <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <dt className="text-sm text-muted-foreground">
+          <div className="data-list__row">
+            <dt className="data-list__key">
               {dict.app.planLabel}
             </dt>
-            <dd className="text-sm font-medium">{plan}</dd>
+            <dd className="data-list__value">{plan}</dd>
           </div>
         </dl>
-        <form action={logoutAction} className="flex justify-end">
+        <form action={logoutAction} className="account__actions">
           <input type="hidden" name="locale" value={locale} />
           <Button type="submit" variant="outline">
             <LogOut aria-hidden="true" />

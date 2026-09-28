@@ -50,18 +50,18 @@ export default async function AdminLayout({
   ]
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
-      <nav className="mb-8 flex flex-wrap gap-2">
+    <div className="admin-shell">
+      <nav className="admin-shell__nav">
         {links.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
             className={cn(
               buttonVariants({ variant: "ghost", size: "sm" }),
-              "inline-flex items-center gap-1.5",
+              "admin-shell__link",
             )}
           >
-            <Icon className="size-4" aria-hidden="true" />
+            <Icon className="u-icon" aria-hidden="true" />
             {label}
           </Link>
         ))}

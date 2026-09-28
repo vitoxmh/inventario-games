@@ -1,0 +1,195 @@
+@use "../abstracts" as *;
+
+/*
+ * Estructuras de página de la zona autenticada: la cabecera con título y
+ * acciones, la lista de datos de la cuenta y el detalle de un juego. Son
+ * bloques de página, no componentes de interfaz, así que viven aquí y no
+ * junto a `components`.
+ */
+
+// --- Cabecera de sección ---------------------------------------------------
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gv-space-3);
+}
+
+.page-title {
+  font-family: var(--gv-font-heading);
+  font-size: var(--gv-text-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.page-title--lg {
+  @include from($bp-sm) {
+    font-size: var(--gv-text-3xl);
+  }
+}
+
+.page-lead {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.page-lead--spaced {
+  margin-block-start: 0.25rem;
+}
+
+// --- Lista de datos (cuenta) -----------------------------------------------
+
+.data-list {
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+
+  // Separador entre filas, dibujado en el `<div>` que envuelve cada par.
+  > div + div {
+    border-block-start: 1px solid var(--gv-border);
+  }
+}
+
+.data-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gv-space-3);
+  padding: 0.75rem var(--gv-space-3);
+}
+
+.data-list__key {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.data-list__value {
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+}
+
+.account__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+// --- Detalle de un juego ---------------------------------------------------
+
+.game-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.game-detail__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.game-detail__body {
+  display: grid;
+  gap: var(--gv-space-3);
+
+  @include from($bp-sm) {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+}
+
+.game-detail__cover {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: var(--gv-surface-2);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+}
+
+.game-detail__cover--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gv-text-muted);
+
+  > svg {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+.game-detail__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.game-detail__tags {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gv-space-3);
+
+  @include from($bp-sm) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.game-detail__tag {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-md);
+}
+
+.game-detail__tag-key {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gv-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.game-detail__tag-value {
+  font-size: var(--gv-text-sm);
+  font-weight: 600;
+}
+
+.game-detail__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: var(--gv-space-3);
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+}
+
+.game-detail__panel-title {
+  font-size: var(--gv-text-xs);
+  font-weight: 600;
+  color: var(--gv-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.game-detail__panel-body {
+  margin-block-start: 0.5rem;
+  font-size: var(--gv-text-sm);
+  white-space: pre-wrap;
+}
+
+.game-detail__panel--muted .game-detail__panel-body {
+  margin-block-start: 0;
+  color: var(--gv-text-muted);
+}
+
+.game-detail__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}

@@ -1,0 +1,83 @@
+@use "../abstracts" as *;
+
+.badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: fit-content;
+  height: 1.5rem;
+  padding-inline: 0.5rem;
+  overflow: hidden;
+  font-size: var(--gv-text-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--gv-radius-full);
+  transition:
+    background-color $dur-fast $ease-out,
+    color $dur-fast $ease-out,
+    border-color $dur-fast $ease-out;
+
+  @include focus-ring(1px);
+
+  > svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+}
+
+.badge--primary {
+  color: var(--gv-primary-contrast);
+  background: var(--gv-primary);
+}
+
+.badge--secondary {
+  color: var(--gv-text);
+  background: var(--gv-surface-2);
+  border-color: var(--gv-border);
+}
+
+.badge--outline {
+  color: var(--gv-text-muted);
+  background: transparent;
+  border-color: var(--gv-border-strong);
+}
+
+.badge--ghost {
+  color: var(--gv-text-muted);
+  background: transparent;
+}
+
+.badge--soft {
+  color: var(--gv-primary);
+  background: var(--gv-primary-soft);
+}
+
+.badge--success {
+  color: var(--gv-success);
+  background: var(--gv-success-soft);
+}
+
+.badge--warning {
+  color: var(--gv-warning);
+  background: var(--gv-warning-soft);
+}
+
+.badge--danger {
+  color: var(--gv-danger);
+  background: var(--gv-danger-soft);
+}
+
+.badge--info {
+  color: var(--gv-info);
+  background: var(--gv-info-soft);
+}
+
+.badge--lg {
+  height: 1.875rem;
+  padding-inline: 0.75rem;
+  font-size: var(--gv-text-sm);
+}

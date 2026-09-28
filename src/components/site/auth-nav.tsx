@@ -34,25 +34,22 @@ export function AuthNav({ locale, labels }: { locale: Locale; labels: Labels }) 
   const router = useRouter()
 
   if (status === "loading") {
-    return <Skeleton className="h-8 w-24" />
+    return <Skeleton className="skeleton--circle" />
   }
 
   if (!session) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="u-cluster u-cluster--tight">
         <Link
           href={`/${locale}/login`}
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
-            "hidden sm:inline-flex",
+            "u-hide-sm",
           )}
         >
           {labels.login}
         </Link>
-        <Link
-          href={`/${locale}/signup`}
-          className={buttonVariants({ size: "default" })}
-        >
+        <Link href={`/${locale}/signup`} className={buttonVariants()}>
           {labels.signup}
         </Link>
       </div>
@@ -65,19 +62,19 @@ export function AuthNav({ locale, labels }: { locale: Locale; labels: Labels }) 
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="outline-none">
-        <Avatar className="size-8 border">
+      <DropdownMenuTrigger className="user-menu__trigger">
+        <Avatar>
           <AvatarFallback>{initial}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="user-menu__content">
         <DropdownMenuGroup>
           <DropdownMenuLabel>
-            <div className="truncate text-sm font-medium">
-              {session.user.name ?? session.user.email}
-            </div>
-            <div className="truncate text-xs font-normal text-muted-foreground">
-              {session.user.email}
+            <div className="user-menu__label">
+              <div className="user-menu__name">
+                {session.user.name ?? session.user.email}
+              </div>
+              <div className="user-menu__email">{session.user.email}</div>
             </div>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
@@ -104,8 +101,7 @@ export function AuthNav({ locale, labels }: { locale: Locale; labels: Labels }) 
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          variant="destructive"
-          className="w-full"
+          variant="danger"
           render={<button type="button" />}
           onClick={() => signOut({ callbackUrl: `/${locale}` })}
         >

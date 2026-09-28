@@ -21,8 +21,8 @@ export function ThemeToggle({
       aria-label={isDark ? labels.toggleDark : labels.toggleLight}
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
-      <Sun className="size-4 dark:hidden" aria-hidden="true" />
-      <Moon className="size-4 hidden dark:block" aria-hidden="true" />
+      <Sun className="theme-toggle__sun u-icon" aria-hidden="true" />
+      <Moon className="theme-toggle__moon u-icon" aria-hidden="true" />
     </Button>
   )
 }

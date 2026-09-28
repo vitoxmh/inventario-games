@@ -110,18 +110,15 @@ export function SignupForm({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="auth-form">
       {error && (
-        <div
-          className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          role="alert"
-        >
+        <div className="notice notice--error" role="alert">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
+      <form onSubmit={handleSubmit} className="auth-form">
+        <div className="auth-form__group">
           <Label htmlFor="name">{dict.name}</Label>
           <Input
             id="name"
@@ -132,7 +129,7 @@ export function SignupForm({
             placeholder={dict.namePlaceholder}
           />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="auth-form__group">
           <Label htmlFor="email">{dict.email}</Label>
           <Input
             id="email"
@@ -144,7 +141,7 @@ export function SignupForm({
             placeholder="you@example.com"
           />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="auth-form__group">
           <Label htmlFor="password">{dict.password}</Label>
           <Input
             id="password"
@@ -169,7 +166,7 @@ export function SignupForm({
             resetSignal={captchaReset}
           />
         )}
-        <Button type="submit" size="lg" className="w-full" disabled={pending}>
+        <Button type="submit" size="lg" className="u-full" disabled={pending}>
           {pending ? dict.loading : dict.submitSignup}
         </Button>
       </form>

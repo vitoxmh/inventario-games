@@ -83,37 +83,31 @@ export default async function GameDetailPage({
   ]
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link
-        href={`/${locale}/app`}
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
+    <div className="game-detail">
+      <Link href={`/${locale}/app`} className="game-form__back">
+        <ArrowLeft aria-hidden="true" />
         {inv.backToInventory}
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+      <div className="page-head">
+        <div className="u-grow u-min-0">
+          <div className="game-detail__title-row">
+            <h1 className="page-title page-title--lg">
               {game.title}
             </h1>
             <Badge variant="secondary">{inv.statuses[game.status]}</Badge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="page-lead page-lead--spaced">
             {game.platform?.name}
             {game.genre ? ` · ${game.genre}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="u-cluster u-cluster--tight">
           <Link
             href={`/${locale}/app/games/${game.id}/edit`}
-            className={cn(
-              buttonVariants({ size: "sm" }),
-              "inline-flex items-center gap-1.5",
-            )}
+            className={cn(buttonVariants({ size: "sm" }), "u-flex u-gap-2")}
           >
-            <Pen className="size-4" aria-hidden="true" />
+            <Pen className="u-icon" aria-hidden="true" />
             {inv.edit}
           </Link>
           <GameDetailActions
@@ -125,56 +119,47 @@ export default async function GameDetailPage({
         </div>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-[220px_1fr]">
+      <div className="game-detail__body">
         <div>
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={cover}
               alt={game.title}
-              className="aspect-[3/4] w-full rounded-xl border object-cover"
+              className="game-detail__cover"
             />
           ) : (
-            <div className="flex aspect-[3/4] w-full items-center justify-center rounded-xl border bg-muted">
-              <Gamepad2
-                className="size-12 text-muted-foreground"
-                aria-hidden="true"
-              />
+            <div className="game-detail__cover game-detail__cover--empty">
+              <Gamepad2 aria-hidden="true" />
             </div>
           )}
         </div>
 
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="game-detail__main">
+          <div className="game-detail__tags">
             {meta.map(({ label, value }) => (
               <div
                 key={label}
-                className="flex flex-col gap-1 rounded-lg border bg-card p-3"
+                className="game-detail__tag"
               >
-                <p className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-                  {label}
-                </p>
-                <p className="text-sm font-semibold">{value}</p>
+                <p className="game-detail__tag-key">{label}</p>
+                <p className="game-detail__tag-value">{value}</p>
               </div>
             ))}
           </div>
 
           {game.notes ? (
-            <div className="rounded-xl border bg-card p-4">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {inv.notes}
-              </h2>
-              <p className="mt-2 text-sm whitespace-pre-wrap">{game.notes}</p>
+            <div className="game-detail__panel">
+              <h2 className="game-detail__panel-title">{inv.notes}</h2>
+              <p className="game-detail__panel-body">{game.notes}</p>
             </div>
           ) : null}
         </div>
       </div>
 
       {images.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            {inv.galleryTitle}
-          </h2>
+        <div className="game-detail__actions">
+          <h2 className="game-detail__panel-title">{inv.galleryTitle}</h2>
           <ImageLightbox images={images} dict={inv} />
         </div>
       )}
