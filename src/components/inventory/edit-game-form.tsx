@@ -19,25 +19,34 @@ import {
 } from "@/components/ui/select"
 import { GameStatus } from "@/generated/prisma/enums"
 import type { PlatformOption } from "@/lib/platforms"
+import { genreName, type GenreOption } from "@/lib/genres"
+import {
+  CONDITION_VALUES,
+  conditionKeyOf,
+  conditionLabel,
+  type ConditionKey,
+} from "@/lib/conditions"
+import {
+  isPhysicalStatus,
+  missingParts,
+  presentParts,
+  type PartsKey,
+} from "@/lib/game-parts"
+import { GenreChips } from "@/components/inventory/genre-chips"
+import { PartsPicker } from "@/components/inventory/parts-picker"
 import type { Dictionary } from "@/messages/es"
 import type { Locale } from "@/lib/i18n/locales"
 import type { GameSummary } from "@/lib/game-summary"
+import { RatingInput } from "@/components/inventory/rating"
+import { ratingLabel } from "@/lib/rating"
 
 type InventoryDict = Dictionary["inventory"]
 type StatusKey = keyof typeof GameStatus
 
+// El estado físico es un desplegable con la escalera cerrada, no un texto: no
+// tiene error de validación porque siempre hay una opción marcada.
 type FieldErrors = Partial<
-  Record<
-    | "title"
-    | "platformId"
-    | "genre"
-    | "status"
-    | "condition"
-    | "hours"
-    | "price"
-    | "date",
-    string
-  >
+  Record<"title" | "platformId" | "status" | "hours" | "price", string>
 >
 
 const STATUS_KEYS = Object.keys(GameStatus) as StatusKey[]
@@ -57,6 +66,7 @@ export function EditGameForm({
   canCustomCover,
   maxImages,
   platforms,
+  genres,
 }: {
   game: GameSummary
   dict: InventoryDict
@@ -64,6 +74,7 @@ export function EditGameForm({
   canCustomCover: boolean
   maxImages: number
   platforms: PlatformOption[]
+  genres: GenreOption[]
 }) {
   const router = useRouter()
   const dropInputRef = useRef<HTMLInputElement | null>(null)
@@ -72,21 +83,53 @@ export function EditGameForm({
   const [uploading, setUploading] = useState(false)
   const [title, setTitle] = useState(game.title)
   const [platformId, setPlatformId] = useState(game.platformId)
-  const [genre, setGenre] = useState(game.genre ?? "")
+  // Los géneros del juego. Es una lista porque un juego puede encajar en varios a
+  // la vez; el desplegable permite marcar y desmarcar, y los chips de abajo son
+  // los que se pueden quitar uno a uno. Vacío = sin género (dato opcional).
+  const [genreIds, setGenreIds] = useState<string[]>(() =>
+    game.genres.map((genre) => genre.id),
+  )
+  const [developer, setDeveloper] = useState(game.developer ?? "")
+  const [publisher, setPublisher] = useState(game.publisher ?? "")
+  const [rating, setRating] = useState<number | null>(game.rating)
   const [status, setStatus] = useState<StatusKey>(game.status)
-  const [condition, setCondition] = useState(game.condition ?? "")
+  const [condition, setCondition] = useState<ConditionKey>(
+    conditionKeyOf(game.condition),
+  )
+  // Qué piezas tiene la copia, y el estado decide si el campo se ve: en un juego
+  // digital o en la lista de deseos no hay caja ni manual que marcar. Se pueden
+  // marcar varias (son tres pastillas); lo que se guarda es el complemento, porque
+  // `Game.parts` son las piezas que FALTAN.
+  //
+  // El `?? []` evita que un payload RSC servido antes de que existiera el campo
+  // (la caché de rutas del cliente, un prefetch) reviente el render: aquí la
+  // lista se recorre sin más, y el servidor la valida igual cuando se guarda.
+  const [parts, setParts] = useState<PartsKey[]>(presentParts(game.parts))
   const [hours, setHours] = useState(
     game.playtimeMin != null ? String(game.playtimeMin / 60) : "",
   )
   const [price, setPrice] = useState(
     game.purchasePrice != null ? String(game.purchasePrice) : "",
   )
-  const [date, setDate] = useState(game.purchaseDate?.slice(0, 10) ?? "")
   const [notes, setNotes] = useState(game.notes ?? "")
   const [images, setImages] = useState<string[]>(game.images)
   const [errors, setErrors] = useState<FieldErrors>({})
 
+  // Los ids seleccionados, traducidos a filas del listado para los chips. Se
+  // cruzan contra `genres` (y no al revés) para no inventarse una etiqueta si el
+  // admin borró el género entre la carga de la página y el clic.
+  const selectedGenres = genreIds.flatMap((id) => {
+    const found = genres.find((genre) => genre.id === id)
+    return found ? [found] : []
+  })
+
+  const isPhysical = isPhysicalStatus(status)
+
   const detailHref = `/${lang}/app/games/${game.id}`
+
+  function removeGenre(id: string) {
+    setGenreIds((prev) => prev.filter((current) => current !== id))
+  }
 
   function maxImagesLabel() {
     return dict.maxImages.replace("{max}", String(maxImages))
@@ -131,12 +174,6 @@ export function EditGameForm({
 
     if (!platformId) nextErrors.platformId = dict.errorPlatformRequired
 
-    const cleanGenre = genre.trim().slice(0, 120)
-    if (!cleanGenre) nextErrors.genre = dict.errorGenreRequired
-
-    const cleanCondition = condition.trim().slice(0, 60)
-    if (!cleanCondition) nextErrors.condition = dict.errorConditionRequired
-
     let playtimeMin: number | null = null
     const trimmedHours = hours.trim()
     if (trimmedHours === "") {
@@ -163,29 +200,12 @@ export function EditGameForm({
       }
     }
 
-    let cleanDate: string | null = null
-    const trimmedDate = date.trim()
-    if (trimmedDate !== "") {
-      const parsed = new Date(trimmedDate)
-      if (
-        Number.isNaN(parsed.getTime()) ||
-        parsed.toISOString().slice(0, 10) !== trimmedDate
-      ) {
-        nextErrors.date = dict.errorDateInvalid
-      } else {
-        cleanDate = trimmedDate
-      }
-    }
-
     setErrors(nextErrors)
     if (
       nextErrors.title ||
       nextErrors.platformId ||
-      nextErrors.genre ||
-      nextErrors.condition ||
       nextErrors.hours ||
-      nextErrors.price ||
-      nextErrors.date
+      nextErrors.price
     ) {
       return
     }
@@ -209,12 +229,27 @@ export function EditGameForm({
         body: JSON.stringify({
           title: cleanTitle,
           platformId,
-          genre: cleanGenre || null,
+          // El conjunto se reemplaza entero: `[]` deja el juego sin género.
+          genreIds,
+          developer: developer.trim().slice(0, 160) || null,
+          publisher: publisher.trim().slice(0, 160) || null,
+          rating,
           status,
           playtimeMin,
-          condition: cleanCondition || null,
+          // Clave de la escalera de `src/lib/conditions.ts` (la etiqueta la pone
+          // el dict al pintar), no texto libre.
+          condition,
+          // Solo se manda si el estado es físico: en digital o en deseos el
+          // selector no está en pantalla y omitir el campo deja el valor guardado
+          // como está (así volver a ponerlo en físico lo recupera). El estado del
+          // formulario son las piezas que TIENE, así que se manda el complemento
+          // (`missingParts`), que es lo que espera la BD, ya validado y en el
+          // orden de lectura de `GAME_PARTS_VALUES`.
+          ...(isPhysical ? { parts: missingParts(parts) } : {}),
           purchasePrice: parsedPrice,
-          purchaseDate: cleanDate,
+          // La fecha de compra ya no se edita en el formulario, así que no se
+          // manda: el PATCH solo toca los campos que llegan y el valor guardado
+          // se queda como está.
           notes: notes.trim().slice(0, 2000) || null,
           ...(canCustomCover ? { images: cleanImages } : {}),
         }),
@@ -355,21 +390,61 @@ export function EditGameForm({
           </div>
           <div className="game-form__field">
             <Label htmlFor={`edit-genre-${game.id}`}>{dict.genre}</Label>
-            <Input
-              id={`edit-genre-${game.id}`}
-              value={genre}
-              onChange={(event) => {
-                setGenre(event.target.value.slice(0, 120))
-                if (errors.genre) setErrors((prev) => ({ ...prev, genre: undefined }))
+            <Select
+              multiple
+              value={genreIds}
+              onValueChange={(value) => setGenreIds(value)}
+              itemToStringLabel={(value) => {
+                const found = genres.find((genre) => genre.id === value)
+                return found ? genreName(found, lang) : String(value)
               }}
-              maxLength={120}
-              placeholder={dict.genrePlaceholder}
-              aria-invalid={errors.genre ? true : undefined}
+            >
+              <SelectTrigger
+                id={`edit-genre-${game.id}`}
+                className="select__trigger--block"
+              >
+                <SelectValue placeholder={dict.genrePlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {genres.map((genre) => (
+                  <SelectItem key={genre.id} value={genre.id}>
+                    {genreName(genre, lang)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <GenreChips
+              genres={selectedGenres}
+              lang={lang}
+              removeLabel={dict.removeGenre}
+              onRemove={removeGenre}
+            />
+          </div>
+          <div className="game-form__field">
+            <Label htmlFor={`edit-developer-${game.id}`}>{dict.developer}</Label>
+            <Input
+              id={`edit-developer-${game.id}`}
+              value={developer}
+              onChange={(event) =>
+                setDeveloper(event.target.value.slice(0, 160))
+              }
+              maxLength={160}
+              placeholder={dict.developerPlaceholder}
               autoComplete="off"
             />
-            {errors.genre && (
-              <p className="field-error">{errors.genre}</p>
-            )}
+          </div>
+          <div className="game-form__field">
+            <Label htmlFor={`edit-publisher-${game.id}`}>{dict.publisher}</Label>
+            <Input
+              id={`edit-publisher-${game.id}`}
+              value={publisher}
+              onChange={(event) =>
+                setPublisher(event.target.value.slice(0, 160))
+              }
+              maxLength={160}
+              placeholder={dict.publisherPlaceholder}
+              autoComplete="off"
+            />
           </div>
           <div className="game-form__field">
             <Label htmlFor={`edit-status-${game.id}`}>{dict.statusLabel}</Label>
@@ -378,7 +453,10 @@ export function EditGameForm({
               onValueChange={(value) => value != null && setStatus(value as StatusKey)}
               itemToStringLabel={(value) => value != null ? dict.statuses[value as StatusKey] ?? String(value) : ""}
             >
-              <SelectTrigger id={`edit-status-${game.id}`}>
+              <SelectTrigger
+                id={`edit-status-${game.id}`}
+                className="select__trigger--block"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -392,21 +470,60 @@ export function EditGameForm({
           </div>
           <div className="game-form__field">
             <Label htmlFor={`edit-condition-${game.id}`}>{dict.condition}</Label>
-            <Input
-              id={`edit-condition-${game.id}`}
+            <Select
               value={condition}
-              onChange={(event) => {
-                setCondition(event.target.value.slice(0, 60))
-                if (errors.condition) setErrors((prev) => ({ ...prev, condition: undefined }))
-              }}
-              maxLength={60}
-              placeholder={dict.conditionPlaceholder}
-              aria-invalid={errors.condition ? true : undefined}
-              autoComplete="off"
+              onValueChange={(value) => value != null && setCondition(value as ConditionKey)}
+              itemToStringLabel={(value) =>
+                conditionLabel(value, dict.conditions) ?? ""
+              }
+            >
+              <SelectTrigger
+                id={`edit-condition-${game.id}`}
+                className="select__trigger--block"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONDITION_VALUES.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {dict.conditions[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Solo en copias físicas: una copia digital no tiene caja ni manual que
+              le falten, y un juego deseado todavía no está en la estantería. La
+              condición física no se filtra con esto porque es un dato de todas las
+              copias. */}
+          {isPhysical && (
+            <div className="game-form__field">
+              {/* Sin `htmlFor`: el grupo de casillas no es un control etiquetable
+                  (son tres), y cada baldosa lleva su propia etiqueta. */}
+              <p className="label">{dict.partsLabel}</p>
+              <PartsPicker
+                id={`edit-parts-${game.id}`}
+                value={parts}
+                labels={dict.parts}
+                onChange={setParts}
+              />
+              <p className="field-hint">{dict.partsHint}</p>
+            </div>
+          )}
+          <div className="game-form__field">
+            {/* No es un `<Label>` con `htmlFor`: el selector de estrellas es un
+                `radiogroup`, no un control etiquetable, y el grupo ya lleva su
+                propio `aria-label`. Ocupa la fila entera para que la explicación
+                de debajo tenga sitio y el formulario cierre las parejas. */}
+            <p className="label">{dict.rating}</p>
+            <RatingInput
+              value={rating}
+              onChange={setRating}
+              label={dict.rating}
+              optionLabel={(step) => ratingLabel(dict.ratingOption, step)}
+              clearLabel={dict.clearRating}
             />
-            {errors.condition && (
-              <p className="field-error">{errors.condition}</p>
-            )}
+            <p className="field-hint">{dict.ratingHint}</p>
           </div>
           <div className="game-form__field">
             <Label htmlFor={`edit-hours-${game.id}`}>{dict.playtimeLabel}</Label>
@@ -447,22 +564,6 @@ export function EditGameForm({
             />
             {errors.price && (
               <p className="field-error">{errors.price}</p>
-            )}
-          </div>
-          <div className="game-form__field">
-            <Label htmlFor={`edit-date-${game.id}`}>{dict.purchaseDate}</Label>
-            <Input
-              id={`edit-date-${game.id}`}
-              type="date"
-              value={date}
-              onChange={(event) => {
-                setDate(event.target.value)
-                if (errors.date) setErrors((prev) => ({ ...prev, date: undefined }))
-              }}
-              aria-invalid={errors.date ? true : undefined}
-            />
-            {errors.date && (
-              <p className="field-error">{errors.date}</p>
             )}
           </div>
         </div>

@@ -1,0 +1,86 @@
+@use "../abstracts" as *;
+
+/*
+ * Miga de pan. Replica el "navigation trail" del diseño: una línea en
+ * versalitas muy espaciadas, el último tramo en el color de acento y sin
+ * enlace, y separadores en el color de contorno.
+ *
+ * El bloque vive una vez porque es una pieza de interfaz reutilizable (y no
+ * una regla de la ficha), aunque hoy solo la monte la ficha de juego.
+ */
+
+.breadcrumb__list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.breadcrumb__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+  @include label-caps;
+  color: var(--gv-text-muted);
+}
+
+.breadcrumb__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--gv-radius-sm);
+  transition: color $dur-fast $ease-out;
+
+  @include focus-ring(2px);
+
+  &:hover {
+    color: var(--qv-primary);
+  }
+}
+
+.breadcrumb__icon {
+  display: inline-flex;
+  flex: none;
+
+  > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+// El tramo actual se pinta en el acento y con más peso, pero no como enlace.
+.breadcrumb__current {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 100%;
+  font-weight: 600;
+  color: var(--qv-secondary);
+}
+
+.breadcrumb__current--plain {
+  font-weight: 400;
+  color: var(--gv-text-muted);
+}
+
+// El recorte va en el hijo y no en el padre: `text-overflow` no actúa sobre un
+// contenedor flex, así que un título de juego largo rompería la miga en vez de
+// recortarse con puntos suspensivos.
+.breadcrumb__text {
+  min-width: 0;
+  @include truncate;
+}
+
+.breadcrumb__sep {
+  flex: none;
+  color: var(--gv-outline-variant);
+}

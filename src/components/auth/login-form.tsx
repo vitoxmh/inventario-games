@@ -3,9 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { signIn } from "next-auth/react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { AtSign, KeyRound, Eye, EyeOff, ArrowRight } from "lucide-react"
 import { Turnstile } from "@/components/auth/turnstile"
 import type { Dictionary } from "@/messages/es"
 import type { Locale } from "@/lib/i18n/locales"
@@ -41,6 +39,7 @@ export function LoginForm({
   const [pending, startTransition] = useTransition()
   const [captchaToken, setCaptchaToken] = useState("")
   const [captchaReset, setCaptchaReset] = useState(0)
+  const [showPassword, setShowPassword] = useState(false)
 
   // El token de Turnstile es de un solo uso: en cuanto se manda hay que
   // resetear el widget para el siguiente intento.
@@ -135,30 +134,72 @@ export function LoginForm({
       {registered && <Alert tone="success">{dict.registered}</Alert>}
       {resendNotice && <Alert tone="success">{dict.resendSent}</Alert>}
 
+      {showGoogle ? (
+        <>
+          <div className="auth-social">
+            <GoogleButton callbackUrl={callbackUrl} />
+          </div>
+          <div className="auth-card__divider">
+            <span className="auth-card__divider-text">{dict.orWithEmail}</span>
+          </div>
+        </>
+      ) : null}
+
       <form onSubmit={handleSubmit} className="auth-form">
-        <div className="auth-form__group">
-          <Label htmlFor="email">{dict.email}</Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            required
-            maxLength={254}
-            autoComplete="email"
-            placeholder="you@example.com"
-          />
+        <div className="auth-field">
+          <label htmlFor="email" className="auth-field__label">
+            {dict.email}
+          </label>
+          <div className="auth-field__control">
+            <AtSign className="auth-field__icon" aria-hidden="true" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              maxLength={254}
+              autoComplete="email"
+              className="auth-field__input"
+              placeholder="tu@identidad.vault"
+            />
+          </div>
         </div>
-        <div className="auth-form__group">
-          <Label htmlFor="password">{dict.password}</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            required
-            maxLength={200}
-            autoComplete="current-password"
-          />
+
+        <div className="auth-field">
+          {/* El diseño incluye aquí "¿Olvidaste tu clave?", pero la aplicación
+              no tiene flujo de recuperación de contraseña: se enlazaría a una
+              ruta inexistente. Cuando se implemente, el enlace vuelve a este
+              bloque con la clase auth-field__forgot. */}
+          <label htmlFor="password" className="auth-field__label">
+            {dict.vaultPassword}
+          </label>
+          <div className="auth-field__control">
+            <KeyRound className="auth-field__icon" aria-hidden="true" />
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              required
+              maxLength={200}
+              autoComplete="current-password"
+              className="auth-field__input auth-field__input--with-action"
+              placeholder="••••••••••••"
+            />
+            <button
+              type="button"
+              className="auth-field__action"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? dict.hidePassword : dict.showPassword}
+            >
+              {showPassword ? (
+                <EyeOff className="auth-field__action-icon" aria-hidden="true" />
+              ) : (
+                <Eye className="auth-field__action-icon" aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </div>
+
         {turnstileSiteKey && (
           <Turnstile
             siteKey={turnstileSiteKey}
@@ -172,9 +213,27 @@ export function LoginForm({
             resetSignal={captchaReset}
           />
         )}
-        <Button type="submit" size="lg" className="u-full" disabled={pending}>
-          {pending ? dict.loading : dict.submitLogin}
-        </Button>
+
+        <div className="auth-meta">
+          <label className="auth-meta__remember" htmlFor="remember">
+            <input
+              id="remember"
+              name="remember"
+              type="checkbox"
+              className="auth-meta__checkbox"
+            />
+            <span className="auth-meta__remember-text">{dict.rememberDevice}</span>
+          </label>
+          <span className="auth-meta__encryption">
+            <span className="auth-meta__encryption-dot" aria-hidden="true" />
+            {dict.encryption}
+          </span>
+        </div>
+
+        <button type="submit" className="auth-submit" disabled={pending}>
+          <span>{pending ? dict.loading : dict.submitLoginCta}</span>
+          <ArrowRight className="auth-submit__icon" aria-hidden="true" />
+        </button>
       </form>
 
       {registered && (
@@ -187,51 +246,34 @@ export function LoginForm({
           {dict.resend} {dict.resendAction}
         </button>
       )}
-
-      <GoogleButton dict={dict} callbackUrl={callbackUrl} showGoogle={showGoogle} />
     </div>
   )
 }
 
-export function GoogleButton({
-  dict,
-  callbackUrl,
-  showGoogle,
-}: {
-  dict: AuthDict
-  callbackUrl: string
-  showGoogle: boolean
-}) {
+export function GoogleButton({ callbackUrl }: { callbackUrl: string }) {
   const [pending, startTransition] = useTransition()
 
-  if (!showGoogle) return null
-
   return (
-    <div className="auth-divider__group">
-      <div className="auth-divider">{dict.or}</div>
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        className="u-full"
-        disabled={pending}
-        onClick={() =>
-          startTransition(() => {
-            void signIn("google", { redirectTo: callbackUrl })
-          })
-        }
-      >
-        <GoogleIcon />
-        {dict.continueGoogle}
-      </Button>
-    </div>
+    <button
+      type="button"
+      className="auth-social__button"
+      disabled={pending}
+      onClick={() =>
+        startTransition(() => {
+          void signIn("google", { redirectTo: callbackUrl })
+        })
+      }
+    >
+      <GoogleIcon />
+      <span className="auth-social__label--google">Google</span>
+    </button>
   )
 }
 
 function GoogleIcon() {
   return (
     <svg
-      className="u-icon"
+      className="auth-social__icon"
       viewBox="0 0 24 24"
       aria-hidden="true"
       xmlns="http://www.w3.org/2000/svg"

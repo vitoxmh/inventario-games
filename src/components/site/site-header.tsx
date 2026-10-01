@@ -4,7 +4,6 @@ import { Sparkles, Tags } from "lucide-react"
 import { Logo } from "@/components/site/logo"
 import { LocaleSwitcher } from "@/components/site/locale-switcher"
 import { AuthNav } from "@/components/site/auth-nav"
-import { ThemeToggle } from "@/components/site/theme-toggle"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
 
@@ -33,12 +32,6 @@ export async function SiteHeader() {
 
         <div className="site-header__actions">
           <LocaleSwitcher currentLocale={locale} label={dict.locale.switchTo} />
-          <ThemeToggle
-            labels={{
-              toggleLight: dict.nav.toggleLight,
-              toggleDark: dict.nav.toggleDark,
-            }}
-          />
           <AuthNav
             locale={locale}
             labels={{

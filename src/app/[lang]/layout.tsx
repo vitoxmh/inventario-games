@@ -1,11 +1,7 @@
 import type { Metadata } from "next"
-import { headers } from "next/headers"
 import { Inter, Plus_Jakarta_Sans, Geist_Mono } from "next/font/google"
 import { lang } from "next/root-params"
 import { SessionProvider } from "next-auth/react"
-import { ThemeProvider } from "@/components/site/theme-provider"
-import { SiteHeader } from "@/components/site/site-header"
-import { SiteFooter } from "@/components/site/site-footer"
 import { Toaster } from "@/components/ui/sonner"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale, locales } from "@/lib/i18n/locales"
@@ -83,26 +79,19 @@ export default async function RootLayout({
   children,
 }: LayoutProps<"/[lang]">) {
   const currentLocale = await lang()
-  // El proxy inyecta x-nonce por petición; se lo pasamos al script anti-FOUC
-  // del ThemeProvider propio (src/components/site/theme-provider.tsx) para que
-  // la CSP estricta (nonce + strict-dynamic) lo admita.
-  const nonce = (await headers()).get("x-nonce") ?? undefined
 
   return (
     <html
       lang={currentLocale}
-      suppressHydrationWarning
       className={`${inter.variable} ${jakarta.variable} ${geistMono.variable}`}
+      // El reset aplica `scroll-behavior: smooth` al `html` (ver `_base.scss`).
+      // Next necesita este atributo para que su propio scroll a la cima tras
+      // navegar no pelee con esa transición suave; sin él avisa por consola.
+      data-scroll-behavior="smooth"
     >
       <body>
-        <ThemeProvider nonce={nonce}>
-          <SessionProvider>
-            <SiteHeader />
-            <main>{children}</main>
-            <SiteFooter />
-            <Toaster />
-          </SessionProvider>
-        </ThemeProvider>
+        <SessionProvider>{children}</SessionProvider>
+        <Toaster />
       </body>
     </html>
   )

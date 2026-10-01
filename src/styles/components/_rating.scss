@@ -1,0 +1,96 @@
+@use "../abstracts" as *;
+
+/*
+ * Valoración de cinco estrellas.
+ *
+ * El bloque vive una vez porque las estrellas aparecen en tres sitios con la
+ * misma forma pero distinto peso visual: el selector del formulario de juego
+ * (`rating-input`, interactivo) y las de lectura en la tarjeta de la
+ * colección y en la ficha (`rating-stars`).
+ *
+ * El ámbar es el mismo de la estrella de "imagen principal" del formulario
+ * (`_game-form.scss`): el color de "encendido" del tema, no un color de estado.
+ */
+
+$rating-amber: #d99400;
+
+// --- Lectura -----------------------------------------------------------------
+
+.rating-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.0625rem;
+  color: var(--gv-text-subtle);
+}
+
+.rating-stars__star {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.rating-stars__star--on {
+  color: $rating-amber;
+}
+
+// --- Selector ----------------------------------------------------------------
+
+.rating-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rating-input__stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.rating-input__star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  color: var(--gv-text-subtle);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: var(--gv-radius-sm);
+  transition:
+    color $dur-fast $ease-out,
+    scale $dur-fast $ease-out;
+
+  @include focus-ring(2px);
+
+  > svg {
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+
+  &:hover {
+    color: $rating-amber;
+    scale: 1.08;
+  }
+}
+
+.rating-input__star--on {
+  color: $rating-amber;
+}
+
+.rating-input__clear {
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  background: none;
+  border: 0;
+
+  @include focus-ring(2px);
+
+  &:hover {
+    color: var(--gv-text);
+  }
+}

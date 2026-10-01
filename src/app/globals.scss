@@ -18,6 +18,7 @@
 @use "../styles/components/button";
 @use "../styles/components/card";
 @use "../styles/components/badge";
+@use "../styles/components/breadcrumb";
 @use "../styles/components/form";
 @use "../styles/components/controls";
 @use "../styles/components/feedback";
@@ -34,7 +35,11 @@
 @use "../styles/components/inventory";
 @use "../styles/components/panel";
 @use "../styles/components/stats";
+@use "../styles/components/rating";
+@use "../styles/components/genre-chips";
+@use "../styles/components/parts-picker";
 @use "../styles/components/game-form";
+@use "../styles/components/auth-card";
 
 // 3. Layouts
 @use "../styles/layouts/site-shell";

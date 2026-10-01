@@ -4,7 +4,7 @@
 .site-header {
   position: sticky;
   top: 0;
-  z-index: $z-header;
+  z-index: $z-topbar;
   background: var(--gv-bg-elevated);
   border-bottom: 1px solid var(--gv-border);
   backdrop-filter: blur(12px);
@@ -101,23 +101,6 @@
   width: 1.25rem;
   height: 1.25rem;
   color: var(--gv-primary);
-}
-
-/* Interruptor de tema: los dos iconos se alternan según el tema. */
-.theme-toggle__sun {
-  display: block;
-
-  .dark & {
-    display: none;
-  }
-}
-
-.theme-toggle__moon {
-  display: none;
-
-  .dark & {
-    display: block;
-  }
 }
 
 /* Menú de usuario del avatar. */

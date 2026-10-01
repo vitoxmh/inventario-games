@@ -3,9 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { signIn } from "next-auth/react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { AtSign, KeyRound, Tag, Eye, EyeOff, ArrowRight } from "lucide-react"
 import { GoogleButton } from "@/components/auth/login-form"
 import { Turnstile } from "@/components/auth/turnstile"
 import type { Dictionary } from "@/messages/es"
@@ -35,6 +33,7 @@ export function SignupForm({
   const [pending, startTransition] = useTransition()
   const [captchaToken, setCaptchaToken] = useState("")
   const [captchaReset, setCaptchaReset] = useState(0)
+  const [showPassword, setShowPassword] = useState(false)
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -117,42 +116,92 @@ export function SignupForm({
         </div>
       )}
 
+      {showGoogle ? (
+        <>
+          <div className="auth-social">
+            <GoogleButton callbackUrl={callbackUrl} />
+          </div>
+          <div className="auth-card__divider">
+            <span className="auth-card__divider-text">{dict.orWithEmail}</span>
+          </div>
+        </>
+      ) : null}
+
       <form onSubmit={handleSubmit} className="auth-form">
-        <div className="auth-form__group">
-          <Label htmlFor="name">{dict.name}</Label>
-          <Input
-            id="name"
-            name="name"
-            type="text"
-            maxLength={80}
-            autoComplete="name"
-            placeholder={dict.namePlaceholder}
-          />
+        <div className="auth-field">
+          <div className="auth-field__head">
+            <label htmlFor="name" className="auth-field__label">
+              {dict.collectorName}
+            </label>
+            <span className="auth-field__hint auth-field__hint--secondary">
+              {dict.collectorPublic}
+            </span>
+          </div>
+          <div className="auth-field__control">
+            <Tag className="auth-field__icon" aria-hidden="true" />
+            <input
+              id="name"
+              name="name"
+              type="text"
+              maxLength={80}
+              autoComplete="name"
+              className="auth-field__input"
+              placeholder="Ej: CyberGamer_99"
+            />
+          </div>
         </div>
-        <div className="auth-form__group">
-          <Label htmlFor="email">{dict.email}</Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            required
-            maxLength={254}
-            autoComplete="email"
-            placeholder="you@example.com"
-          />
+
+        <div className="auth-field">
+          <label htmlFor="email" className="auth-field__label">
+            {dict.email}
+          </label>
+          <div className="auth-field__control">
+            <AtSign className="auth-field__icon" aria-hidden="true" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              maxLength={254}
+              autoComplete="email"
+              className="auth-field__input"
+              placeholder="tu@identidad.vault"
+            />
+          </div>
         </div>
-        <div className="auth-form__group">
-          <Label htmlFor="password">{dict.password}</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            required
-            minLength={8}
-            maxLength={200}
-            autoComplete="new-password"
-          />
+
+        <div className="auth-field">
+          <label htmlFor="password" className="auth-field__label">
+            {dict.vaultPassword}
+          </label>
+          <div className="auth-field__control">
+            <KeyRound className="auth-field__icon" aria-hidden="true" />
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              required
+              minLength={8}
+              maxLength={200}
+              autoComplete="new-password"
+              className="auth-field__input auth-field__input--with-action"
+              placeholder="••••••••••••"
+            />
+            <button
+              type="button"
+              className="auth-field__action"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? dict.hidePassword : dict.showPassword}
+            >
+              {showPassword ? (
+                <EyeOff className="auth-field__action-icon" aria-hidden="true" />
+              ) : (
+                <Eye className="auth-field__action-icon" aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </div>
+
         {turnstileSiteKey && (
           <Turnstile
             siteKey={turnstileSiteKey}
@@ -166,12 +215,29 @@ export function SignupForm({
             resetSignal={captchaReset}
           />
         )}
-        <Button type="submit" size="lg" className="u-full" disabled={pending}>
-          {pending ? dict.loading : dict.submitSignup}
-        </Button>
-      </form>
 
-      <GoogleButton dict={dict} callbackUrl={callbackUrl} showGoogle={showGoogle} />
+        <div className="auth-meta">
+          <label className="auth-meta__remember" htmlFor="terms">
+            <input
+              id="terms"
+              name="terms"
+              type="checkbox"
+              required
+              className="auth-meta__checkbox"
+            />
+            <span className="auth-meta__remember-text">{dict.acceptTerms}</span>
+          </label>
+          <span className="auth-meta__encryption">
+            <span className="auth-meta__encryption-dot" aria-hidden="true" />
+            {dict.encryption}
+          </span>
+        </div>
+
+        <button type="submit" className="auth-submit" disabled={pending}>
+          <span>{pending ? dict.loading : dict.submitSignupCta}</span>
+          <ArrowRight className="auth-submit__icon" aria-hidden="true" />
+        </button>
+      </form>
     </div>
   )
 }

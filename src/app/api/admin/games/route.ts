@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         id: true,
         title: true,
         platform: { select: { name: true } },
-        genre: true,
+        genres: { select: { genre: { select: { nameEs: true } } } },
         status: true,
         createdAt: true,
         user: { select: { id: true, email: true } },
@@ -53,8 +53,15 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     games: games.map((game) => ({
-      ...game,
+      id: game.id,
+      title: game.title,
       platform: game.platform.name,
+      // El panel muestra los géneros en español y separados por comas: el juego
+      // puede tener varios y la columna es una sola celda.
+      genres: game.genres.map((row) => row.genre.nameEs),
+      status: game.status,
+      createdAt: game.createdAt.toISOString(),
+      user: game.user,
     })),
     total,
     page,

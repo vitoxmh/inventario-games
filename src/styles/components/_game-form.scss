@@ -79,6 +79,15 @@
   gap: 0.5rem;
 }
 
+// Campos que ocupan la fila entera de la cuadrícula de dos columnas: los que
+// llevan algo que necesita el ancho (géneros con sus chips, valoración) o los
+// que dejan así la cuadrícula en parejas sin huecos.
+.game-form__field--full {
+  @include from($bp-sm) {
+    grid-column: 1 / -1;
+  }
+}
+
 .game-form__actions {
   display: flex;
   flex-wrap: wrap;
@@ -329,4 +338,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
+}
+
+// Los chips de género ocupan la fila entera: son más anchos que el desplegable y
+// con media columna se partirían.
+.game-picker__genres {
+  grid-column: 1 / -1;
 }

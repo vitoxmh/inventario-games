@@ -13,6 +13,7 @@
 
 html {
   height: 100%;
+  color-scheme: dark;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
@@ -23,9 +24,7 @@ body {
   margin: 0;
   display: flex;
   flex-direction: column;
-  font-family: var(--gv-font-sans);
-  font-size: var(--gv-text-base);
-  line-height: 1.55;
+  @include body-md;
   color: var(--gv-text);
   background: var(--gv-bg);
   -webkit-font-smoothing: antialiased;
@@ -38,6 +37,10 @@ main {
 
 // ---------------------------------------------------------------------------
 // Tipografía
+//
+// Los tamaños salen de la escala M3 del diseño: display-hero, headline-lg/md/sm,
+// body-lg/md/sm y label-md. Los mixin ya fijan familia, tamaño, interlineado,
+// tracking y peso, así que aquí solo se decide qué nivel usa cada etiqueta.
 // ---------------------------------------------------------------------------
 
 h1,
@@ -47,36 +50,33 @@ h4,
 h5,
 h6 {
   margin: 0;
-  font-family: var(--gv-font-heading);
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
   color: var(--gv-text);
   text-wrap: balance;
 }
 
 h1 {
-  font-size: var(--gv-text-3xl);
+  @include headline-lg;
 
   @include from($bp-md) {
-    font-size: var(--gv-text-4xl);
+    @include display-hero;
   }
 }
 
 h2 {
-  font-size: var(--gv-text-2xl);
-
-  @include from($bp-md) {
-    font-size: var(--gv-text-3xl);
-  }
+  @include headline-md;
 }
 
 h3 {
-  font-size: var(--gv-text-xl);
+  @include headline-sm;
 }
 
 h4 {
-  font-size: var(--gv-text-lg);
+  @include label-md;
+}
+
+h5,
+h6 {
+  @include label-md;
 }
 
 p {
@@ -157,8 +157,8 @@ hr {
 }
 
 ::selection {
-  color: var(--gv-primary-contrast);
-  background: var(--gv-primary-soft);
+  color: var(--qv-on-primary-container);
+  background: var(--qv-primary-fixed);
 }
 
 // ---------------------------------------------------------------------------
@@ -184,19 +184,5 @@ hr {
   width: 100%;
   max-width: $width-content;
   margin-inline: auto;
-  padding-inline: var(--gv-space-3);
-
-  @include from($bp-sm) {
-    padding-inline: var(--gv-space-4);
-  }
-}
-
-// Suspensión de transiciones mientras se cambia de tema
-// (`disableTransitionOnChange` del ThemeProvider propio).
-.gv-no-transition,
-.gv-no-transition *,
-.gv-no-transition *::before,
-.gv-no-transition *::after {
-  transition: none !important;
-  animation: none !important;
+  padding-inline: var(--gv-space-4);
 }

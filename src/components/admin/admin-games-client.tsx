@@ -33,7 +33,7 @@ type AdminGame = {
   id: string
   title: string
   platform: string
-  genre: string | null
+  genres: string[]
   status: string
   createdAt: string
   ownerEmail: string
@@ -151,7 +151,9 @@ export function AdminGamesClient({
                       <span className="font-medium">{game.title}</span>
                       <span className="text-xs u-muted">
                         {game.platform}
-                        {game.genre ? ` · ${game.genre}` : ""}
+                        {game.genres.length > 0
+                          ? ` · ${game.genres.join(", ")}`
+                          : ""}
                       </span>
                     </div>
                   </TableCell>

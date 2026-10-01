@@ -9,13 +9,25 @@ $bp-2xl: 1440px;
 
 // Capas de apilado. Los overlays de Base UI (dialog, sheet, select, menu) se
 // posicionan en el body vía portal, así que van por encima del header sticky.
+// El orden replica el del diseño: footer < topbar < sidebar.
 $z-base: 1;
 $z-raised: 10;
 $z-sticky: 20;
-$z-header: 30;
+$z-footer: 30;
+$z-topbar: 40;
+$z-sidebar: 50;
 $z-overlay: 40;
 $z-popover: 50;
 $z-toast: 60;
+
+// Métricas del shell de QuestVault. El sidebar, la barra superior y la barra
+// de estado inferior son fijos y comparten el mismo ritmo vertical.
+$shell-sidebar-w: 16rem; // w-64
+$shell-topbar-h: 4rem; // h-16
+$shell-footer-h: 2.5rem; // h-10
+$shell-main-pt: 4rem; // pt-16
+$shell-main-pb: 3rem; // pb-12
+$shell-max-w: 95rem; // 1520px
 
 // Curvas y duraciones. Stitch/Base UI usa transiciones cortas: nada de
 // animaciones que duren más de un cuarto de segundo.

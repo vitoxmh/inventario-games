@@ -1,98 +1,571 @@
 @use "../abstracts" as *;
 
 /*
- * Shell de la zona autenticada (`/[lang]/app`) y del panel de admin.
- * Ambos comparten el mismo patrón: contenedor + navegación + contenido.
+ * Shell de QuestVault.
+ *
+ * Reproduce el armazón del diseño Stitch: sidebar fijo de 16rem, barra superior
+ * fija de 4rem, barra de estado fija de 2.5rem al pie, y el contenido
+ * desplazado por el ancho del sidebar. Las tres barras son translúcidas con
+ * `backdrop-blur` y un hairline de sombra, que es lo que da profundidad al
+ * apilado en este tema oscuro.
+ *
+ * En móvil el sidebar se oculta y el contenido ocupa todo el ancho: las medidas
+ * del diseño están tomadas de las variantes desktop, así que por debajo de
+ * `$bp-md` se recupera un flujo normal con una barra superior compacta.
  */
 
-.app-shell {
-  display: block;
-  width: 100%;
-  padding: var(--gv-space-4) var(--gv-space-3);
-
-  @include from($bp-sm) {
-    padding-inline: var(--gv-space-4);
-  }
-
-  // En escritorio la navegación pasa a ser una columna fija a la izquierda.
-  @include from($bp-md) {
-    display: grid;
-    grid-template-columns: 15rem minmax(0, 1fr);
-    gap: var(--gv-space-3);
-    align-items: start;
-  }
+.shell {
+  min-height: 100vh;
+  background: var(--gv-bg);
 }
 
-.app-shell__nav {
-  margin-bottom: var(--gv-space-3);
+/* ---------------------------------------------------------------------------
+ * Sidebar
+ * ------------------------------------------------------------------------ */
 
-  @include from($bp-md) {
-    position: sticky;
-    top: var(--gv-space-3);
-    margin-bottom: 0;
-  }
-}
-
-.app-shell__list {
+.shell__sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: $z-sidebar;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 0.25rem;
+  justify-content: space-between;
+  width: $shell-sidebar-w;
+  background: var(--qv-surface-low-90);
+  -webkit-backdrop-filter: blur(var(--qv-blur-xl));
+  backdrop-filter: blur(var(--qv-blur-xl));
+  box-shadow: var(--qv-shadow-hairline);
+
+  @include until($bp-md) {
+    display: none;
+  }
 }
 
-.app-shell__link {
-  justify-content: flex-start;
-  gap: 0.5rem;
+.shell__sidebar-top {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  @include no-scrollbar;
 }
 
-.app-shell__main {
+.shell__brand {
+  display: flex;
+  align-items: center;
+  height: $shell-topbar-h;
+  padding-inline: var(--gv-space-3);
+}
+
+.shell__logo {
+  @include headline-sm;
+  letter-spacing: -0.01em;
+  color: var(--gv-text);
+}
+
+/* Navegación -------------------------------------------------------------- */
+
+.shell-nav__group-label {
+  padding: var(--gv-space-1) var(--gv-space-3);
+}
+
+.shell-nav__group + .shell-nav__group {
+  margin-top: var(--gv-space-2);
+}
+
+.shell-nav__group-title {
+  padding-inline: var(--gv-space-1);
+  @include label-caps;
+  color: var(--gv-text-subtle);
+}
+
+.shell-nav__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-1);
+  padding: var(--gv-space-1) var(--gv-space-2) 0;
+}
+
+.shell-nav__link {
+  display: flex;
+  align-items: center;
+  gap: var(--gv-space-2);
+  padding: var(--gv-space-2) var(--gv-space-3);
+  @include body-md;
+  color: var(--gv-text-muted);
+  border-radius: var(--gv-radius-md);
+  transition:
+    color $dur-fast $ease-out,
+    background-color $dur-fast $ease-out;
+
+  &:hover {
+    color: var(--gv-text);
+    background: var(--qv-surface-container);
+  }
+}
+
+.shell-nav__link--active {
+  color: var(--gv-text);
+  background: var(--qv-surface-high-40);
+  font-weight: 500;
+}
+
+.shell-nav__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+
+.shell-nav__label {
+  @include truncate;
+}
+
+/* Tarjeta de estado de la colección --------------------------------------- */
+
+.shell-vault {
+  margin: var(--gv-space-2);
+  padding: var(--gv-space-3);
+  background: var(--qv-surface-lowest-50);
+  border-radius: var(--gv-radius-lg);
+}
+
+.shell-vault__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--gv-space-1);
+  color: var(--gv-text-subtle);
+}
+
+.shell-vault__title {
+  @include label-caps;
+}
+
+.shell-vault__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  background: var(--qv-secondary);
+  border-radius: var(--gv-radius-full);
+  animation: shell-pulse 2s $ease-in-out infinite;
+}
+
+.shell-vault__count {
+  @include body-sm;
+  color: var(--gv-text);
+}
+
+.shell-vault__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--gv-space-1);
+  margin-top: var(--gv-space-1);
+  @include label-caps;
+  color: var(--gv-text-subtle);
+}
+
+.shell-vault__meta-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--qv-secondary);
+}
+
+@keyframes shell-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Columna de contenido: barra superior, área principal y barra de estado
+ * ------------------------------------------------------------------------ */
+
+.shell__body {
+  width: 100%;
+
+  @include from($bp-md) {
+    padding-left: $shell-sidebar-w;
+  }
+}
+
+.shell__topbar {
+  position: fixed;
+  inset: 0 0 auto $shell-sidebar-w;
+  z-index: $z-topbar;
+  display: flex;
+  align-items: center;
+  height: $shell-topbar-h;
+  padding-inline: var(--gv-space-4);
+  background: var(--qv-surface-lowest-80);
+  -webkit-backdrop-filter: blur(var(--qv-blur-xl));
+  backdrop-filter: blur(var(--qv-blur-xl));
+  box-shadow: var(--qv-shadow-hairline);
+
+  @include until($bp-md) {
+    inset-inline: 0;
+  }
+}
+
+.shell__main {
+  width: 100%;
+  min-height: calc(100vh - $shell-footer-h);
+  padding: $shell-main-pt var(--gv-space-4) $shell-main-pb;
+  background: var(--gv-bg);
+
+  @include until($bp-md) {
+    padding-top: $shell-topbar-h + var(--gv-space-4);
+  }
+}
+
+.shell__status {
+  position: fixed;
+  inset: auto 0 0 $shell-sidebar-w;
+  z-index: $z-footer;
+  display: flex;
+  align-items: center;
+  height: $shell-footer-h;
+  background: var(--qv-surface-lowest-90);
+  -webkit-backdrop-filter: blur(var(--qv-blur-md));
+  backdrop-filter: blur(var(--qv-blur-md));
+  box-shadow: var(--qv-shadow-hairline-top);
+
+  @include until($bp-md) {
+    inset-inline: 0;
+  }
+}
+
+/* Barra superior ---------------------------------------------------------- */
+
+.topbar__search {
+  flex: 1;
+  max-width: 36rem;
+  // Ancla del desplegable de resultados, que se abre hacia abajo sobre el
+  // contenido en lugar de desplazar la barra superior.
+  position: relative;
+}
+
+.topbar__search-field {
+  display: flex;
+  align-items: center;
+  padding: var(--gv-space-1) var(--gv-space-3);
+  @include body-sm;
+  color: var(--gv-text-subtle);
+  background: var(--qv-surface-high-60);
+  border-radius: var(--gv-radius-md);
+  transition:
+    color $dur-fast $ease-out,
+    background-color $dur-fast $ease-out;
+
+  &:focus-within {
+    color: var(--gv-text);
+    background: var(--qv-surface-container);
+  }
+}
+
+.topbar__search-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: var(--gv-space-2);
+  flex: none;
+}
+
+.topbar__search-input {
+  width: 100%;
   min-width: 0;
+  color: var(--gv-text);
+  background: none;
+  border: 0;
+  outline: none;
+
+  &::placeholder {
+    color: var(--gv-text-subtle);
+  }
+
+  &::-webkit-search-cancel-button {
+    appearance: none;
+  }
 }
 
-.app-shell__back {
-  position: sticky;
-  top: 0;
-  z-index: $z-sticky;
+.topbar__search-kbd {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0;
-  margin-bottom: var(--gv-space-2);
-  font-size: var(--gv-text-sm);
-  font-weight: 500;
-  color: var(--gv-text-muted);
-  background: linear-gradient(var(--gv-bg) 70%, transparent);
-  transition: color $dur-fast $ease-out;
+  gap: 0.125rem;
+  padding: 0.125rem var(--gv-space-1);
+  @include label-caps;
+  color: var(--gv-text-subtle);
+  background: var(--qv-surface-container-highest);
+  border-radius: var(--gv-radius-sm);
+  cursor: default;
+}
 
-  @include focus-ring(0);
+.topbar__search-kbd-icon {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+/* Resultados del buscador --------------------------------------------------- */
+
+/*
+ * El panel se posiciona respecto a `.topbar__search` y baja pegado al campo. Al
+ * salir de la barra superior por `z-index`, el `overflow` de la cabecera no lo
+ * recortaría.
+ */
+.search-panel {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + var(--gv-space-1));
+  z-index: $z-popover;
+  overflow: hidden;
+  background: var(--qv-surface-container-high);
+  border-radius: var(--gv-radius-md);
+  box-shadow: var(--qv-shadow-lg);
+  animation: search-panel-in $dur-fast $ease-out;
+
+  @include until($bp-sm) {
+    position: fixed;
+    inset-inline: var(--gv-space-2);
+    top: $shell-topbar-h;
+  }
+}
+
+@keyframes search-panel-in {
+  from {
+    opacity: 0;
+    translate: 0 -0.25rem;
+  }
+}
+
+.search-panel__list {
+  margin: 0;
+  padding: var(--gv-space-1);
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+  @include no-scrollbar;
+}
+
+.search-panel__item {
+  display: flex;
+  align-items: center;
+  gap: var(--gv-space-2);
+  padding: var(--gv-space-2);
+  border-radius: var(--gv-radius-sm);
+  text-decoration: none;
+
+  // El realce lo lleva la fila activa (teclado o puntero), no el `hover` suelto:
+  // con ratón, `hover` y `active` coinciden y el estado se encendía solo.
+  &:hover,
+  &--active {
+    background: var(--qv-surface-container-highest);
+  }
+}
+
+.search-panel__cover {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  object-fit: cover;
+  background: var(--qv-surface-container-lowest);
+  border-radius: var(--gv-radius-sm);
+}
+
+.search-panel__cover--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gv-text-subtle);
+
+  > svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.search-panel__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.search-panel__title {
+  @include body-sm;
+  color: var(--gv-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-panel__meta {
+  @include label-caps;
+  color: var(--gv-text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-panel__empty {
+  margin: 0;
+  padding: var(--gv-space-4) var(--gv-space-3);
+  @include body-sm;
+  color: var(--gv-text-subtle);
+  text-align: center;
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--gv-space-3);
+  margin-left: var(--gv-space-3);
+}
+
+/* Píldora de sincronización: se oculta cuando no hay sitio. */
+.topbar__sync {
+  display: none;
+  align-items: center;
+  gap: var(--gv-space-1);
+  padding: var(--gv-space-1) var(--gv-space-2);
+  background: var(--qv-surface-high-40);
+  border-radius: var(--gv-radius-full);
+
+  @include from($bp-lg) {
+    display: flex;
+  }
+}
+
+.topbar__sync-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--qv-secondary);
+}
+
+.topbar__sync-text {
+  @include label-caps;
+  color: var(--gv-text-muted);
+}
+
+.topbar__cta {
+  @include label-md;
+  color: var(--qv-on-primary);
+  background: var(--qv-primary);
+  border-radius: var(--gv-radius-md);
+  transition:
+    color $dur-fast $ease-out,
+    background-color $dur-fast $ease-out;
+
+  &:hover {
+    color: var(--qv-primary-fixed);
+    background: var(--qv-primary-fixed);
+  }
+}
+
+.topbar__icon-btn {
+  position: relative;
+  padding: var(--gv-space-1);
+  color: var(--gv-text-subtle);
+  border-radius: var(--gv-radius-sm);
+  transition: color $dur-fast $ease-out;
 
   &:hover {
     color: var(--gv-text);
   }
 }
 
-.app-shell__back-icon {
-  width: 1rem;
-  height: 1rem;
+.topbar__icon {
+  width: 1.375rem;
+  height: 1.375rem;
 }
 
-/* Panel de admin: navegación horizontal de fichas. */
-.admin-shell {
-  width: 100%;
-  padding: var(--gv-space-4) var(--gv-space-3);
+.topbar__icon-dot {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--qv-tertiary-container);
+  border-radius: var(--gv-radius-full);
+}
 
-  @include from($bp-sm) {
-    padding-inline: var(--gv-space-4);
+.topbar__user {
+  display: flex;
+  align-items: center;
+  gap: var(--gv-space-2);
+  padding-left: var(--gv-space-1);
+  border-radius: var(--gv-radius-full);
+  outline: none;
+
+  @include focus-ring(2px);
+}
+
+.topbar__avatar {
+  width: 2rem;
+  height: 2rem;
+}
+
+.topbar__user-meta {
+  display: none;
+  flex-direction: column;
+  text-align: left;
+
+  @include from($bp-xl) {
+    display: flex;
   }
 }
 
-.admin-shell__nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: var(--gv-space-3);
+.topbar__user-name {
+  @include label-md;
+  line-height: 1;
+  color: var(--gv-text);
 }
 
-.admin-shell__link {
-  gap: 0.375rem;
+.topbar__user-role {
+  margin-top: 0.25rem;
+  @include label-caps;
+  line-height: 1;
+  color: var(--gv-text-subtle);
+}
+
+/* Barra de estado inferior ------------------------------------------------ */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding-inline: var(--gv-space-4);
+  @include body-sm;
+  color: var(--gv-text-muted);
+}
+
+.status-bar__group {
+  display: flex;
+  align-items: center;
+  gap: var(--gv-space-3);
+  min-width: 0;
+}
+
+.status-bar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  @include truncate;
+}
+
+.status-bar__icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--qv-secondary);
+}
+
+.status-bar__dot {
+  display: inline-block;
+  width: 0.25rem;
+  height: 0.25rem;
+  flex: none;
+  background: var(--qv-outline-variant);
+  border-radius: var(--gv-radius-full);
 }
