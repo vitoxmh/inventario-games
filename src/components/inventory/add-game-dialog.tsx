@@ -24,9 +24,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { resolvePlatformId, type PlatformOption } from "@/lib/platforms"
+import { genreName, type GenreOption } from "@/lib/genres"
+import { GameStatus } from "@/generated/prisma/enums"
+import { GenreChips } from "@/components/inventory/genre-chips"
+import type { Locale } from "@/lib/i18n/locales"
 import type { Dictionary } from "@/messages/es"
 
 type InventoryDict = Dictionary["inventory"]
+type StatusKey = keyof typeof GameStatus
+
+const STATUS_KEYS = Object.keys(GameStatus) as StatusKey[]
 type RawgSummary = {
   id: number
   title: string
@@ -40,9 +47,20 @@ type RawgSummary = {
 export function AddGameDialog({
   dict,
   platforms,
+  genres,
+  lang,
+  triggerClassName,
+  triggerLabel,
 }: {
   dict: InventoryDict
   platforms: PlatformOption[]
+  genres: GenreOption[]
+  lang: Locale
+  // El mismo diálogo se usa como CTA de la barra superior de QuestVault y como
+  // botón secundario dentro de las páginas, así que el disparador es
+  // configurable en clase y etiqueta.
+  triggerClassName?: string
+  triggerLabel?: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -57,6 +75,26 @@ export function AddGameDialog({
   )
   const [addingManual, setAddingManual] = useState(false)
   const [manualError, setManualError] = useState<string | null>(null)
+  const [manualDeveloper, setManualDeveloper] = useState("")
+  const [manualPublisher, setManualPublisher] = useState("")
+  const [manualGenreIds, setManualGenreIds] = useState<string[]>([])
+  // Una sola opción, igual que el estado del formulario de edición: el
+  // desplegable es de elección única y arranca en el mismo valor que ponía el
+  // `@default(OWNED)` del schema cuando el campo todavía no existía.
+  const [manualStatus, setManualStatus] = useState<StatusKey>(
+    GameStatus.OWNED,
+  )
+
+  // Géneros marcados en el alta manual, en el mismo orden del listado para que
+  // los chips salgan igual que las opciones del desplegable.
+  const manualGenres = manualGenreIds.flatMap((id) => {
+    const found = genres.find((genre) => genre.id === id)
+    return found ? [found] : []
+  })
+
+  function removeManualGenre(id: string) {
+    setManualGenreIds((prev) => prev.filter((current) => current !== id))
+  }
 
   function handleSearch() {
     const q = query.trim()
@@ -122,7 +160,9 @@ export function AddGameDialog({
     const title = manualTitle.trim().slice(0, 200)
     const platformId = manualPlatformId
     if (!title || !platformId) {
-      setManualError(!title ? dict.errorTitleRequired : dict.errorPlatformRequired)
+      setManualError(
+        !title ? dict.errorTitleRequired : dict.errorPlatformRequired,
+      )
       return
     }
     setManualError(null)
@@ -130,7 +170,14 @@ export function AddGameDialog({
     const res = await fetch("/api/games", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, platformId }),
+      body: JSON.stringify({
+        title,
+        platformId,
+        genreIds: manualGenreIds,
+        developer: manualDeveloper.trim() || null,
+        publisher: manualPublisher.trim() || null,
+        status: manualStatus,
+      }),
     })
     setAddingManual(false)
 
@@ -148,6 +195,10 @@ export function AddGameDialog({
     setResults(null)
     setManualTitle("")
     setManualPlatformId(platforms[0]?.id ?? "")
+    setManualDeveloper("")
+    setManualPublisher("")
+    setManualGenreIds([])
+    setManualStatus(GameStatus.OWNED)
     toast.success(dict.addedToast)
     router.refresh()
   }
@@ -157,18 +208,18 @@ export function AddGameDialog({
         setOpen(next)
         if (!next) setManualError(null)
       }}>
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger render={<Button className={triggerClassName} />}>
         <Plus aria-hidden="true" />
-        {dict.add}
+        {triggerLabel ?? dict.add}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{dict.modalTitle}</DialogTitle>
           <DialogDescription>{dict.modalDescription}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-2">
-          <Label htmlFor="game-search" className="sr-only">
+        <div className="game-picker__search">
+          <Label htmlFor="game-search" className="u-sr-only">
             {dict.searchPlaceholder}
           </Label>
           <Input
@@ -190,8 +241,7 @@ export function AddGameDialog({
             disabled={searching || query.trim().length < 3}
           >
             {searching ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              <span className="game-picker__spinner">
                 {dict.searching}
               </span>
             ) : (
@@ -204,36 +254,36 @@ export function AddGameDialog({
         </div>
 
         {notice && (
-          <p className="text-sm text-muted-foreground">{notice}</p>
+          <p className="game-picker__notice">{notice}</p>
         )}
 
-        <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
+        <div className="game-picker__results">
           {results === null && searching && (
             <>
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
+              <Skeleton className="game-picker__result" />
+              <Skeleton className="game-picker__result" />
             </>
           )}
           {results?.map((game) => (
             <div
               key={game.id}
-              className="flex items-center gap-3 rounded-lg border p-2"
+              className="game-picker__result"
             >
               {game.coverImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={game.coverImageUrl}
                   alt=""
-                  className="size-14 shrink-0 rounded bg-muted object-cover"
+                  className="game-picker__cover"
                 />
               ) : (
-                <div className="flex size-14 shrink-0 items-center justify-center rounded bg-muted">
-                  <Gamepad2 className="size-6 text-muted-foreground" />
+                <div className="game-picker__cover game-picker__cover--empty">
+                  <Gamepad2 aria-hidden="true" />
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{game.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
+              <div className="game-picker__info">
+                <p className="game-picker__name">{game.title}</p>
+                <p className="game-picker__meta">
                   {game.platform || dict.unknownPlatform}
                   {game.genre ? ` · ${game.genre}` : ""}
                 </p>
@@ -258,11 +308,11 @@ export function AddGameDialog({
           ))}
         </div>
 
-        <div className="border-t pt-3">
-          <p className="text-sm font-medium">{dict.manualAdd}</p>
-          <div className="mt-2 flex flex-col gap-2">
-            <div className="grid grid-cols-2 gap-2">
-              <Label htmlFor="manual-title" className="sr-only">
+        <div className="game-picker__manual">
+          <p className="game-picker__manual-title">{dict.manualAdd}</p>
+          <div className="game-picker__manual-body">
+            <div className="game-picker__manual-grid">
+              <Label htmlFor="manual-title" className="u-sr-only">
                 {dict.manualTitleLabel}
               </Label>
               <Input
@@ -283,10 +333,10 @@ export function AddGameDialog({
                 aria-invalid={manualError === dict.errorTitleRequired ? true : undefined}
                 autoComplete="off"
               />
-              <Label htmlFor="manual-platform" className="sr-only">
+              <Label htmlFor="manual-platform" className="u-sr-only">
                 {dict.manualPlatformLabel}
               </Label>
-              <span className="flex items-center gap-2">
+              <span className="u-flex u-gap-2">
                 <Select
                   value={manualPlatformId}
                   onValueChange={(value) => {
@@ -299,7 +349,7 @@ export function AddGameDialog({
                 >
                   <SelectTrigger
                     id="manual-platform"
-                    className="w-full"
+                    className="select__trigger--block"
                     aria-label={dict.manualPlatformLabel}
                     aria-invalid={
                       manualError === dict.errorPlatformRequired ? true : undefined
@@ -316,14 +366,113 @@ export function AddGameDialog({
                   </SelectContent>
                 </Select>
               </span>
+              <Label htmlFor="manual-status" className="u-sr-only">
+                {dict.statusLabel}
+              </Label>
+              <span className="u-flex u-gap-2">
+                <Select
+                  value={manualStatus}
+                  onValueChange={(value) => {
+                    if (value != null) setManualStatus(value as StatusKey)
+                  }}
+                  itemToStringLabel={(value) =>
+                    value != null
+                      ? dict.statuses[value as StatusKey] ?? String(value)
+                      : ""
+                  }
+                >
+                  <SelectTrigger
+                    id="manual-status"
+                    className="select__trigger--block"
+                    aria-label={dict.statusLabel}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_KEYS.map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {dict.statuses[key]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </span>
+              <Label htmlFor="manual-genre" className="u-sr-only">
+                {dict.genre}
+              </Label>
+              <span className="u-flex u-gap-2">
+                <Select
+                  multiple
+                  value={manualGenreIds}
+                  onValueChange={(value) => {
+                    setManualGenreIds(value)
+                    if (value.length > 0) setManualError(null)
+                  }}
+                  itemToStringLabel={(value) => {
+                    const found = genres.find((genre) => genre.id === value)
+                    return found ? genreName(found, lang) : ""
+                  }}
+                >
+                  <SelectTrigger
+                    id="manual-genre"
+                    className="select__trigger--block"
+                    aria-label={dict.genre}
+                  >
+                    <SelectValue placeholder={dict.genrePlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {genres.map((genre) => (
+                      <SelectItem key={genre.id} value={genre.id}>
+                        {genreName(genre, lang)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </span>
+              <div className="game-picker__genres">
+                <GenreChips
+                  genres={manualGenres}
+                  lang={lang}
+                  removeLabel={dict.removeGenre}
+                  onRemove={removeManualGenre}
+                />
+              </div>
+              <Label htmlFor="manual-developer" className="u-sr-only">
+                {dict.developer}
+              </Label>
+              <Input
+                id="manual-developer"
+                value={manualDeveloper}
+                onChange={(event) =>
+                  setManualDeveloper(event.target.value.slice(0, 160))
+                }
+                maxLength={160}
+                placeholder={dict.developerPlaceholder}
+                aria-label={dict.developer}
+                autoComplete="off"
+              />
+              <Label htmlFor="manual-publisher" className="u-sr-only">
+                {dict.publisher}
+              </Label>
+              <Input
+                id="manual-publisher"
+                value={manualPublisher}
+                onChange={(event) =>
+                  setManualPublisher(event.target.value.slice(0, 160))
+                }
+                maxLength={160}
+                placeholder={dict.publisherPlaceholder}
+                aria-label={dict.publisher}
+                autoComplete="off"
+              />
             </div>
             {manualError && (
-              <p className="text-sm text-destructive">{manualError}</p>
+              <p className="field-error">{manualError}</p>
             )}
             <Button
               type="button"
               size="sm"
-              className="w-fit"
+              className="u-fit"
               onClick={() => void handleManualAdd()}
               disabled={addingManual}
             >

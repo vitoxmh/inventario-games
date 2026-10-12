@@ -56,7 +56,7 @@ export function GameDetailActions({
         variant="outline"
         size="sm"
         onClick={() => setDeleteOpen(true)}
-        className="inline-flex items-center gap-1.5"
+        className="game-form__back"
       >
         <Trash2 className="size-4" aria-hidden="true" />
         {dict.remove}

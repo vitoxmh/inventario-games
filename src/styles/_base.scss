@@ -1,0 +1,188 @@
+// Reset ligero. No es un reset universal (eso rompería los popovers de Base UI
+// y los iconos de lucide): solo se normaliza lo que el diseño necesita.
+@use "abstracts" as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  // Sustituye al `@apply border-border` de la versión con Tailwind: cualquier
+  // `border` sin color explícito hereda el token de borde.
+  border-color: var(--gv-border);
+}
+
+html {
+  height: 100%;
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  @include body-md;
+  color: var(--gv-text);
+  background: var(--gv-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+// ---------------------------------------------------------------------------
+// Tipografía
+//
+// Los tamaños salen de la escala M3 del diseño: display-hero, headline-lg/md/sm,
+// body-lg/md/sm y label-md. Los mixin ya fijan familia, tamaño, interlineado,
+// tracking y peso, así que aquí solo se decide qué nivel usa cada etiqueta.
+// ---------------------------------------------------------------------------
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  color: var(--gv-text);
+  text-wrap: balance;
+}
+
+h1 {
+  @include headline-lg;
+
+  @include from($bp-md) {
+    @include display-hero;
+  }
+}
+
+h2 {
+  @include headline-md;
+}
+
+h3 {
+  @include headline-sm;
+}
+
+h4 {
+  @include label-md;
+}
+
+h5,
+h6 {
+  @include label-md;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+li {
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+svg {
+  flex: none;
+}
+
+strong,
+b {
+  font-weight: 600;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--gv-font-mono);
+  font-size: 0.9em;
+}
+
+hr {
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--gv-border);
+}
+
+// ---------------------------------------------------------------------------
+// Foco y selección
+// ---------------------------------------------------------------------------
+
+:focus-visible {
+  outline: 2px solid var(--gv-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: var(--qv-on-primary-container);
+  background: var(--qv-primary-fixed);
+}
+
+// ---------------------------------------------------------------------------
+// Utilidades globales (pocas y transversales)
+// ---------------------------------------------------------------------------
+
+// Visible solo para lectores de pantalla.
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Contenedor con ancho máximo y padding lateral, el ritmo horizontal que
+// comparten todas las páginas públicas.
+.container {
+  width: 100%;
+  max-width: $width-content;
+  margin-inline: auto;
+  padding-inline: var(--gv-space-4);
+}

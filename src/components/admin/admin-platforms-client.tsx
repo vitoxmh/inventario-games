@@ -165,13 +165,13 @@ export function AdminPlatformsClient({
               <TableHead>{dict.name}</TableHead>
               <TableHead>{dict.slug}</TableHead>
               <TableHead>{dict.gamesCount}</TableHead>
-              <TableHead className="text-right">{dict.actions}</TableHead>
+              <TableHead className="u-right">{dict.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {platforms.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={4} className="py-8 u-center u-muted">
                   {dict.noGames}
                 </TableCell>
               </TableRow>
@@ -202,7 +202,7 @@ export function AdminPlatformsClient({
                           size="icon-sm"
                           variant="ghost"
                           onClick={cancelRename}
-                          className="text-muted-foreground"
+                          className="u-muted"
                         >
                           <X aria-hidden="true" />
                         </Button>
@@ -211,27 +211,27 @@ export function AdminPlatformsClient({
                       <span className="font-medium">{platform.name}</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="u-muted">
                     <Badge variant="secondary">{platform.slug}</Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground tabular-nums">
+                  <TableCell className="u-muted u-numeric">
                     {platform.gameCount}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="u-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => startRename(platform)}
-                        className="text-muted-foreground"
+                        className="u-muted"
                       >
                         <Pencil aria-hidden="true" />
                         <span className="sr-only">{dict.renamePlatform}</span>
                       </Button>
                       {platform.gameCount > 0 ? (
-                        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Trash2 className="opacity-40" aria-hidden="true" />
+                        <div className="inline-flex items-center gap-1.5 text-xs u-muted">
+                          <Trash2 className="u-faded" aria-hidden="true" />
                           <span>{dict.platformInUse}</span>
                         </div>
                       ) : (
@@ -239,7 +239,7 @@ export function AdminPlatformsClient({
                           <AlertDialogTrigger
                             render={<Button variant="ghost" size="icon-sm" />}
                           >
-                            <Trash2 className="text-destructive" aria-hidden="true" />
+                            <Trash2 className="u-danger" aria-hidden="true" />
                             <span className="sr-only">{dict.removeGame}</span>
                           </AlertDialogTrigger>
                           <AlertDialogContent>

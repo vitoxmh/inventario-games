@@ -1,0 +1,326 @@
+@use "../abstracts" as *;
+
+/* Rejilla y tarjeta de planes. La usa el home y /pricing. */
+.plans {
+  display: grid;
+  gap: var(--gv-space-3);
+  grid-template-columns: 1fr;
+
+  @include from($bp-md) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.plan {
+  position: relative;
+}
+
+.plan--popular {
+  border-color: var(--gv-primary);
+  box-shadow: var(--gv-shadow-md);
+}
+
+.plan__flag {
+  position: absolute;
+  top: -0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.plan__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plan__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.plan__price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.plan__amount {
+  font-family: var(--gv-font-heading);
+  font-size: var(--gv-text-3xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.plan__period {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.plan__features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: var(--gv-text-sm);
+}
+
+.plan__feature {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plan__check {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  color: var(--gv-primary);
+}
+
+// --- Facturación ------------------------------------------------------------
+
+.billing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-4);
+}
+
+.billing__plans {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.billing__plans-title {
+  font-family: var(--gv-font-heading);
+  font-size: var(--gv-text-lg);
+  font-weight: 700;
+}
+
+.billing__usage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.billing__usage-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--gv-text-sm);
+}
+
+.billing__usage-value {
+  font-weight: 500;
+}
+
+.billing__usage-bar {
+  width: 100%;
+  height: 0.5rem;
+  overflow: hidden;
+  background: var(--gv-surface-2);
+  border-radius: var(--gv-radius-full);
+}
+
+.billing__usage-fill {
+  height: 100%;
+  background: var(--gv-primary);
+  border-radius: var(--gv-radius-full);
+  transition: width $dur-slow $ease-out;
+}
+
+.billing__usage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--gv-text-sm);
+}
+
+.billing__grid {
+  display: grid;
+  gap: var(--gv-space-3);
+  grid-template-columns: 1fr;
+
+  @include from($bp-sm) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.billing__tier {
+  &--upgrade {
+    border-color: var(--gv-primary);
+    box-shadow: var(--gv-shadow-md);
+  }
+}
+
+.billing__tier-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.billing__tier-price {
+  font-family: var(--gv-font-heading);
+  font-size: var(--gv-text-2xl);
+  font-weight: 700;
+  color: var(--gv-text);
+}
+
+.billing__tier-period {
+  font-size: var(--gv-text-sm);
+  font-weight: 400;
+  color: var(--gv-text-muted);
+}
+
+.billing__features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.billing__feature {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  > svg {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    color: var(--gv-primary);
+  }
+}
+
+.billing__pending {
+  margin-inline-start: 0.5rem;
+}
+
+.billing__footprint {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+
+  > svg {
+    width: 1rem;
+    height: 1rem;
+    margin-inline-end: 0.25rem;
+    vertical-align: text-bottom;
+  }
+}
+
+// --- Historial de pagos ----------------------------------------------------
+
+.pay-history__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pay-history__list {
+  display: flex;
+  flex-direction: column;
+  // Un separador entre filas, sin borde en la primera ni en la última.
+  > li + li {
+    border-block-start: 1px solid var(--gv-border);
+  }
+}
+
+.pay-history__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-block: 0.75rem;
+
+  &:first-child {
+    padding-block-start: 0;
+  }
+
+  &:last-child {
+    padding-block-end: 0;
+  }
+
+  @include from($bp-sm) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gv-space-3);
+  }
+}
+
+.pay-history__main {
+  display: flex;
+  flex-direction: column;
+}
+
+.pay-history__plan {
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+}
+
+.pay-history__period {
+  font-weight: 400;
+  color: var(--gv-text-muted);
+}
+
+.pay-history__ref {
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-muted);
+}
+
+.pay-history__amounts {
+  display: flex;
+  flex-direction: column;
+
+  @include from($bp-sm) {
+    align-items: flex-end;
+  }
+}
+
+.pay-history__amount {
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+}
+
+.pay-history__date {
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-muted);
+}
+
+.pay-history__limited {
+  margin-block-start: 0.75rem;
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-muted);
+}
+
+.provider-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem;
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-full);
+  transition:
+    color $dur-fast $ease-out,
+    background-color $dur-fast $ease-out,
+    border-color $dur-fast $ease-out;
+
+  @include focus-ring(2px);
+}
+
+.provider-toggle--on {
+  color: var(--gv-text);
+  background: var(--gv-primary-soft);
+  border-color: var(--gv-primary);
+}
+
+.provider-toggle--off {
+  color: var(--gv-text-muted);
+
+  &:hover {
+    background: var(--gv-surface-2);
+  }
+}

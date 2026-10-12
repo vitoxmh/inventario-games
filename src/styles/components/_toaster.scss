@@ -1,0 +1,116 @@
+@use "../abstracts" as *;
+
+/*
+ * Notificaciones (sonner). Sonner marca sus elementos con atributos
+ * `data-sonner-*`, así que se estilizan por atributo en vez de por clase.
+ */
+.toaster__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.toaster__icon--loading {
+  animation: toast-spin 0.9s linear infinite;
+}
+
+[data-sonner-toaster] {
+  --gv-toast-width: 22rem;
+}
+
+[data-sonner-toast] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  width: var(--gv-toast-width);
+  padding: 0.75rem 0.875rem;
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text);
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-md);
+  box-shadow: var(--gv-shadow-md);
+
+  > svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.0625rem;
+  }
+
+  &[data-type="success"] {
+    border-inline-start: 3px solid var(--gv-success);
+  }
+
+  &[data-type="error"] {
+    border-inline-start: 3px solid var(--gv-danger);
+  }
+
+  &[data-type="warning"] {
+    border-inline-start: 3px solid var(--gv-warning);
+  }
+
+  &[data-type="info"] {
+    border-inline-start: 3px solid var(--gv-info);
+  }
+}
+
+[data-sonner-toast] [data-sonner-close-button] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-inline-start: auto;
+  color: var(--gv-text-subtle);
+  background: none;
+  border-radius: var(--gv-radius-sm);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--gv-text);
+    background: var(--gv-surface-2);
+  }
+
+  > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+[data-sonner-toast] [data-sonner-content] {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+[data-sonner-toast] [data-sonner-title] {
+  font-weight: 600;
+}
+
+[data-sonner-toast] [data-sonner-description] {
+  color: var(--gv-text-muted);
+}
+
+[data-sonner-toast] [data-sonner-action] {
+  margin-inline-start: auto;
+  font-size: var(--gv-text-sm);
+  font-weight: 600;
+  color: var(--gv-primary);
+  background: none;
+  cursor: pointer;
+}
+
+[data-sonner-toast] [data-sonner-loader] {
+  animation: toast-spin 0.9s linear infinite;
+}
+
+@keyframes toast-spin {
+  to {
+    rotate: 360deg;
+  }
+}[data-sonner-tooltip] {
+  padding: 0.25rem 0.5rem;
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-inverse);
+  background: var(--gv-text);
+  border-radius: var(--gv-radius-sm);
+}

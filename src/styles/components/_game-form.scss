@@ -1,0 +1,347 @@
+@use "../abstracts" as *;
+
+/*
+ * Formulario de alta/edición de un juego. Lo comparten `edit-game-form` y
+ * `add-game-dialog`, así que el bloque vive una vez: campos, gestor de fotos y
+ * zona de arrastre.
+ */
+
+.game-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.game-form__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: fit-content;
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+  transition: color $dur-fast $ease-out;
+
+  > svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  &:hover {
+    color: var(--gv-text);
+  }
+}
+
+.game-form__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.game-form__title {
+  font-family: var(--gv-font-heading);
+  font-size: var(--gv-text-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.game-form__subtitle {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.game-form__box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+  padding: var(--gv-space-3);
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+
+  @include from($bp-sm) {
+    padding: var(--gv-space-4);
+  }
+}
+
+.game-form__grid {
+  display: grid;
+  gap: var(--gv-space-3);
+
+  @include from($bp-sm) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.game-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+// Campos que ocupan la fila entera de la cuadrícula de dos columnas: los que
+// llevan algo que necesita el ancho (géneros con sus chips, valoración) o los
+// que dejan así la cuadrícula en parejas sin huecos.
+.game-form__field--full {
+  @include from($bp-sm) {
+    grid-column: 1 / -1;
+  }
+}
+
+.game-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+// --- Fotos ------------------------------------------------------------------
+
+.game-form__photos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.game-form__photo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.game-form__thumb {
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+  object-fit: cover;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-sm);
+}
+
+.game-form__thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gv-text-muted);
+  background: var(--gv-surface-2);
+
+  > svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.game-form__photo-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.game-form__photo-actions {
+  display: flex;
+  gap: 0.375rem;
+}
+
+// La estrella de "imagen principal": apagada en gris, encendida en ámbar.
+.photo-star {
+  color: var(--gv-text-muted);
+
+  > svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.photo-star--on {
+  color: #d99400;
+}
+
+.photo-action {
+  color: var(--gv-text-muted);
+}
+
+.game-form__drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: var(--gv-space-3);
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+  text-align: center;
+  cursor: pointer;
+  background: var(--gv-surface-2);
+  border: 1px dashed var(--gv-border-strong);
+  border-radius: var(--gv-radius-lg);
+  transition:
+    background-color $dur-fast $ease-out,
+    border-color $dur-fast $ease-out,
+    color $dur-fast $ease-out;
+
+  @include focus-ring(2px);
+
+  > svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  &:hover {
+    background: var(--gv-surface-3);
+    border-color: var(--gv-ring);
+  }
+}
+
+.game-form__drop--active {
+  color: var(--gv-text);
+  background: var(--gv-primary-soft);
+  border-color: var(--gv-primary);
+}
+
+.game-form__drop--uploading > svg {
+  @include motion-ok {
+    animation: game-form-pulse 1.2s $ease-in-out infinite;
+  }
+}
+
+.game-form__drop-note {
+  font-size: var(--gv-text-xs);
+}
+
+@keyframes game-form-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+// Aviso de portada solo con plan Pro.
+.game-form__locked {
+  padding: 0.5rem 0.75rem;
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-muted);
+  background: var(--gv-surface-2);
+  border-radius: var(--gv-radius-md);
+}
+
+// --- Buscador del diálogo de alta -------------------------------------------
+
+.game-picker__search {
+  display: flex;
+  gap: 0.5rem;
+}
+
+// Anillo giratorio que sustituye al icono mientras se busca.
+.game-picker__spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.game-picker__spinner::before {
+  content: "";
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid currentColor;
+  border-block-start-color: transparent;
+  border-radius: 50%;
+
+  @include motion-ok {
+    animation: game-form-pulse 1.2s linear infinite;
+  }
+}
+
+.game-picker__notice {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.game-picker__results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.game-picker__result {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-md);
+}
+
+.game-picker__cover {
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: none;
+  object-fit: cover;
+  background: var(--gv-surface-2);
+  border-radius: var(--gv-radius-sm);
+}
+
+.game-picker__cover--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gv-text-muted);
+
+  > svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+.game-picker__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.game-picker__name {
+  @include truncate;
+
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+}
+
+.game-picker__meta {
+  @include truncate;
+
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-muted);
+}
+
+.game-picker__manual {
+  padding-block-start: 0.75rem;
+  border-block-start: 1px solid var(--gv-border);
+}
+
+.game-picker__manual-title {
+  font-size: var(--gv-text-sm);
+  font-weight: 500;
+}
+
+.game-picker__manual-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
+}
+
+.game-picker__manual-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+// Los chips de género ocupan la fila entera: son más anchos que el desplegable y
+// con media columna se partirían.
+.game-picker__genres {
+  grid-column: 1 / -1;
+}

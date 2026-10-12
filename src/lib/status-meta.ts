@@ -4,7 +4,6 @@ import {
   Heart,
   Lock,
   Package,
-  PackageCheck,
   Tag,
   type LucideIcon,
 } from "lucide-react"
@@ -15,7 +14,6 @@ export type StatusKey = keyof typeof GameStatus
 export const STATUS_ICONS = {
   [GameStatus.OWNED]: Package,
   [GameStatus.SEALED]: Lock,
-  [GameStatus.CIB]: PackageCheck,
   [GameStatus.LOOSE]: Disc3,
   [GameStatus.DIGITAL]: CloudDownload,
   [GameStatus.WISHLIST]: Heart,

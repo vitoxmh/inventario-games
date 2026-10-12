@@ -1,0 +1,129 @@
+@use "../abstracts" as *;
+
+.skeleton {
+  background: var(--gv-skeleton);
+  border-radius: var(--gv-radius-md);
+
+  @include motion-ok {
+    animation: skeleton-pulse 1.6s $ease-in-out infinite;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.skeleton--text {
+  height: 0.75rem;
+  width: 100%;
+}
+
+.skeleton--circle {
+  border-radius: var(--gv-radius-full);
+}
+
+/* Separador. Base UI marca `data-orientation`. */
+.separator {
+  flex: none;
+  background: var(--gv-border);
+  border: 0;
+
+  &[data-orientation="horizontal"] {
+    width: 100%;
+    height: 1px;
+  }
+
+  &[data-orientation="vertical"] {
+    width: 1px;
+    align-self: stretch;
+  }
+}
+
+/* Área de scroll. */
+.scroll-area {
+  position: relative;
+}
+
+.scroll-area__viewport {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+
+  @include focus-ring(0);
+
+  &:focus-visible {
+    outline-width: 2px;
+  }
+}
+
+.scroll-area__scrollbar {
+  display: flex;
+  padding: 1px;
+  touch-action: none;
+  user-select: none;
+  transition: opacity $dur-fast $ease-out;
+
+  &[data-orientation="vertical"] {
+    width: 0.625rem;
+    height: 100%;
+    border-left: 1px solid transparent;
+  }
+
+  &[data-orientation="horizontal"] {
+    flex-direction: column;
+    height: 0.625rem;
+    width: 100%;
+    border-top: 1px solid transparent;
+  }
+}
+
+.scroll-area__thumb {
+  position: relative;
+  flex: 1;
+  background: var(--gv-border-strong);
+  border-radius: var(--gv-radius-full);
+}
+
+/* Barra de progreso. */
+.progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.progress__track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 0.25rem;
+  overflow-x: hidden;
+  background: var(--gv-surface-2);
+  border-radius: var(--gv-radius-full);
+}
+
+.progress__indicator {
+  height: 100%;
+  background: var(--gv-primary);
+  transition:
+    inline-size $dur-slow $ease-out,
+    width $dur-slow $ease-out;
+}
+
+.progress__label {
+  font-size: var(--gv-text-sm);
+  font-weight: 600;
+}
+
+.progress__value {
+  margin-left: auto;
+  font-size: var(--gv-text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--gv-text-muted);
+}

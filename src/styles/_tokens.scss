@@ -1,0 +1,310 @@
+/*
+ * Tokens de diseño — QuestVault (Obsidian Kinetic)
+ *
+ * El tema es ÚNICAMENTE oscuro por decisión de producto, así que no existe
+ * bloque de tema claro: `:root` ya es la variante oscura y no hay clase `.dark`
+ * que aplicar. Esto elimina la necesidad del script anti-FOUC del ThemeProvider.
+ *
+ * La paleta es la escala Material 3 exacta del diseño Stitch. La capa `raw`
+ * (`--qv-*`) conserva los nombres del tema de origen para que las decisiones de
+ * color sean trazables hasta el diseño; la capa `semantic` (`--gv-*`) es la que
+ * consume el resto de los partials.
+ */
+
+// ---------------------------------------------------------------------------
+// 1. Paleta cruda — nombres del tema Stitch
+// ---------------------------------------------------------------------------
+:root {
+  color-scheme: dark;
+
+  // Superficies
+  --qv-background: #0b1326;
+  --qv-surface: #0b1326;
+  --qv-surface-dim: #0b1326;
+  --qv-surface-bright: #31394d;
+  --qv-surface-container-lowest: #060e20;
+  --qv-surface-container-low: #131b2e;
+  --qv-surface-container: #171f33;
+  --qv-surface-container-high: #222a3d;
+  --qv-surface-container-highest: #2d3449;
+  --qv-surface-variant: #2d3449;
+
+  // Contenido
+  --qv-on-surface: #dae2fd;
+  --qv-on-surface-variant: #cbc3d7;
+  --qv-outline: #958ea0;
+  --qv-outline-variant: #494454;
+
+  // Marca
+  --qv-primary: #d0bcff;
+  --qv-primary-container: #a078ff;
+  --qv-on-primary: #3c0091;
+  --qv-on-primary-container: #340080;
+  --qv-primary-fixed: #e9ddff;
+  --qv-primary-fixed-dim: #d0bcff;
+  --qv-inverse-primary: #6d3bd7;
+
+  --qv-secondary: #4cd7f6;
+  --qv-secondary-container: #03b5d3;
+  --qv-on-secondary: #003640;
+  --qv-on-secondary-container: #00424e;
+  --qv-secondary-fixed: #acedff;
+  --qv-secondary-fixed-dim: #4cd7f6;
+
+  --qv-tertiary: #ffb0cd;
+  --qv-tertiary-container: #f751a1;
+  --qv-on-tertiary: #640039;
+  --qv-on-tertiary-container: #570032;
+  --qv-tertiary-fixed: #ffd9e4;
+  --qv-tertiary-fixed-dim: #ffb0cd;
+
+  // Semánticos
+  --qv-error: #ffb4ab;
+  --qv-on-error: #690005;
+  --qv-error-container: #93000a;
+  --qv-on-error-container: #ffdad6;
+
+  // Derivatives fijos en modo oscuro
+  --qv-inverse-surface: #dae2fd;
+  --qv-inverse-on-surface: #31394d;
+  --qv-surface-tint: #d0bcff;
+}
+
+// ---------------------------------------------------------------------------
+// 2. Tokens semánticos — los que consume el resto de los partials
+// ---------------------------------------------------------------------------
+:root {
+  // Superficies
+  --gv-bg: var(--qv-background);
+  --gv-surface: var(--qv-surface-container);
+  --gv-surface-2: var(--qv-surface-container-high);
+  --gv-surface-3: var(--qv-surface-container-highest);
+  --gv-bg-elevated: rgb(6 14 32 / 80%);
+  --gv-overlay: rgb(6 14 32 / 72%);
+
+  // Texto
+  --gv-text: var(--qv-on-surface);
+  --gv-text-muted: var(--qv-on-surface-variant);
+  --gv-text-subtle: var(--qv-outline);
+  --gv-text-inverse: var(--qv-surface-container-lowest);
+
+  // Bordes
+  --gv-border: var(--qv-outline-variant);
+  --gv-border-strong: rgb(149 142 160 / 45%);
+
+  // Marca
+  --gv-primary: var(--qv-primary);
+  --gv-primary-hover: var(--qv-primary-fixed);
+  --gv-primary-soft: rgb(160 120 255 / 20%);
+  --gv-primary-contrast: var(--qv-on-primary);
+
+  --gv-accent: var(--qv-secondary);
+  --gv-accent-hover: var(--qv-secondary-fixed);
+  --gv-accent-soft: rgb(3 181 211 / 20%);
+  --gv-accent-contrast: var(--qv-on-secondary-container);
+
+  --gv-tertiary: var(--qv-tertiary);
+  --gv-tertiary-soft: rgb(247 81 161 / 20%);
+  --gv-tertiary-contrast: var(--qv-on-tertiary-container);
+
+  // Semánticos
+  --gv-danger: var(--qv-error);
+  --gv-danger-soft: rgb(147 0 10 / 35%);
+  --gv-danger-contrast: var(--qv-on-error-container);
+  --gv-success: var(--qv-secondary);
+  --gv-success-soft: rgb(3 181 211 / 20%);
+  --gv-warning: var(--qv-tertiary);
+  --gv-warning-soft: rgb(247 81 161 / 20%);
+  --gv-info: var(--qv-primary);
+  --gv-info-soft: rgb(160 120 255 / 20%);
+
+  --gv-ring: var(--qv-primary);
+
+  // Superficies translúcidas del diseño (backdrop-blur)
+  --qv-surface-low-90: rgb(19 27 46 / 90%);
+  --qv-surface-low-70: rgb(19 27 46 / 70%);
+  --qv-surface-low-60: rgb(19 27 46 / 60%);
+  --qv-surface-low-50: rgb(19 27 46 / 50%);
+  --qv-surface-lowest-90: rgb(6 14 32 / 90%);
+  --qv-surface-lowest-80: rgb(6 14 32 / 80%);
+  --qv-surface-lowest-50: rgb(6 14 32 / 50%);
+  --qv-surface-container-90: rgb(23 31 51 / 90%);
+  --qv-surface-high-70: rgb(34 42 61 / 70%);
+  --qv-surface-high-60: rgb(34 42 61 / 60%);
+  --qv-surface-high-50: rgb(34 42 61 / 50%);
+  --qv-surface-high-40: rgb(34 42 61 / 40%);
+  --qv-surface-high-30: rgb(34 42 61 / 30%);
+  --qv-surface-highest-80: rgb(45 52 73 / 80%);
+  --qv-surface-highest-60: rgb(45 52 73 / 60%);
+
+  // Sombras — valores por defecto de Tailwind tal y como los usa el diseño
+  --qv-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 5%);
+  --qv-shadow-md:
+    0 4px 6px -1px rgb(0 0 0 / 10%), 0 2px 4px -2px rgb(0 0 0 / 10%);
+  --qv-shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 10%), 0 4px 6px -4px rgb(0 0 0 / 10%);
+  --qv-shadow-xl:
+    0 20px 25px -5px rgb(0 0 0 / 10%), 0 8px 10px -6px rgb(0 0 0 / 10%);
+  --qv-shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 25%);
+  --qv-shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 5%);
+  --qv-shadow-hairline: 0 1px 8px rgb(0 0 0 / 4%);
+  --qv-shadow-hairline-top: 0 -1px 6px rgb(0 0 0 / 3%);
+
+  // Alias que ya usaban los partials
+  --gv-shadow-sm: var(--qv-shadow-sm);
+  --gv-shadow-md: var(--qv-shadow-lg);
+  --gv-shadow-lg: var(--qv-shadow-2xl);
+
+  // Blur del diseño
+  --qv-blur-md: 12px;
+  --qv-blur-xl: 24px;
+  --qv-blur-3xl: 64px;
+
+  // Gráficos
+  --gv-chart-1: var(--qv-primary-container);
+  --gv-chart-2: var(--qv-secondary);
+  --gv-chart-3: var(--qv-tertiary);
+  --gv-chart-4: var(--qv-primary);
+  --gv-chart-5: var(--qv-tertiary-container);
+
+  --gv-skeleton: var(--qv-surface-container-high);
+  --gv-skeleton-shine: rgb(255 255 255 / 7%);
+}
+
+// ---------------------------------------------------------------------------
+// 3. Radios
+// ---------------------------------------------------------------------------
+:root {
+  --gv-radius-sm: 0.25rem; // DEFAULT
+  --gv-radius-md: 0.5rem; // lg
+  --gv-radius-lg: 0.75rem; // xl
+  --gv-radius-full: 9999px;
+
+  // Radios de Tailwind que el diseño usa aunque no estén en el set de tokens
+  --qv-radius-md: 0.375rem;
+  --qv-radius-2xl: 1rem;
+}
+
+// ---------------------------------------------------------------------------
+// 4. Espaciado
+// ---------------------------------------------------------------------------
+:root {
+  --gv-space-1: 0.25rem; // space-xs
+  --gv-space-2: 0.5rem; // space-sm
+  --gv-space-3: 1rem; // space-md
+  --gv-space-4: 1.5rem; // space-lg / gutter
+  --gv-space-5: 2.5rem; // space-xl
+  --qv-margin: 2rem; // margin
+}
+
+// ---------------------------------------------------------------------------
+// 5. Tipografía
+//
+// El diseño separa familia (font-headline-*, font-body-*, font-label-*) de
+// escala (text-headline-*, text-body-*). Aquí se expone cada combinación
+// completa como una custom property para no repetir las dos en cada partial.
+// Las variables las inyecta `next/font` en el layout raíz.
+// ---------------------------------------------------------------------------
+:root {
+  --gv-font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --gv-font-heading:
+    var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  --gv-font-mono:
+    var(--font-geist-mono), ui-monospace, "SFMono-Regular", "Cascadia Mono",
+    monospace;
+
+  // display-hero
+  --qv-display-hero-size: 3.5rem;
+  --qv-display-hero-line: 4rem;
+  --qv-display-hero-track: -0.03em;
+  --qv-display-hero-weight: 800;
+
+  // headline-lg
+  --qv-headline-lg-size: 2rem;
+  --qv-headline-lg-line: 2.5rem;
+  --qv-headline-lg-track: -0.02em;
+  --qv-headline-lg-weight: 700;
+
+  // headline-md
+  --qv-headline-md-size: 1.5rem;
+  --qv-headline-md-line: 2rem;
+  --qv-headline-md-track: -0.015em;
+  --qv-headline-md-weight: 600;
+
+  // headline-sm
+  --qv-headline-sm-size: 1.125rem;
+  --qv-headline-sm-line: 1.625rem;
+  --qv-headline-sm-track: -0.01em;
+  --qv-headline-sm-weight: 600;
+
+  // body-lg
+  --qv-body-lg-size: 1rem;
+  --qv-body-lg-line: 1.625rem;
+  --qv-body-lg-track: -0.005em;
+  --qv-body-lg-weight: 400;
+
+  // body-md
+  --qv-body-md-size: 0.875rem;
+  --qv-body-md-line: 1.375rem;
+
+  // body-sm
+  --qv-body-sm-size: 0.75rem;
+  --qv-body-sm-line: 1.125rem;
+  --qv-body-sm-track: 0.01em;
+
+  // label-md
+  --qv-label-md-size: 0.8125rem;
+  --qv-label-md-line: 1rem;
+  --qv-label-md-track: 0.02em;
+  --qv-label-md-weight: 600;
+
+  // label-caps
+  --qv-label-caps-size: 0.6875rem;
+  --qv-label-caps-line: 0.875rem;
+  --qv-label-caps-track: 0.08em;
+  --qv-label-caps-weight: 700;
+
+  // Alias que ya usaban los partials
+  --gv-text-xs: var(--qv-body-sm-size);
+  --gv-text-sm: var(--qv-label-md-size);
+  --gv-text-base: var(--qv-body-md-size);
+  --gv-text-md: var(--qv-body-lg-size);
+  --gv-text-lg: var(--qv-headline-sm-size);
+  --gv-text-xl: var(--qv-headline-md-size);
+  --gv-text-2xl: var(--qv-headline-lg-size);
+  --gv-text-3xl: 2.5rem;
+  --gv-text-4xl: var(--qv-display-hero-size);
+}
+
+// ---------------------------------------------------------------------------
+// 6. Degradados de marca
+// ---------------------------------------------------------------------------
+:root {
+  // CTA de marca: el degradado violeta → cyan del login del diseño.
+  --gv-gradient-cta: linear-gradient(135deg, #a078ff 0%, #03b5d3 100%);
+  // CTA de upgrade de planes.
+  --qv-gradient-upgrade: linear-gradient(
+    90deg,
+    #a078ff 0%,
+    #d0bcff 50%,
+    #4cd7f6 100%
+  );
+  // Cinta "Popular".
+  --qv-gradient-ribbon: linear-gradient(90deg, #03b5d3 0%, #4cd7f6 50%, #a078ff 100%);
+  // Tarjeta Pro.
+  --qv-gradient-pro: linear-gradient(
+    180deg,
+    rgb(34 42 61 / 90%) 0%,
+    rgb(19 27 46 / 80%) 50%,
+    #060e20 100%
+  );
+  // Halo sutil para superficies destacadas (tarjetas de plan, CTA).
+  --gv-gradient-glow: linear-gradient(
+    150deg,
+    rgb(160 120 255 / 16%) 0%,
+    rgb(3 181 211 / 14%) 100%
+  );
+}

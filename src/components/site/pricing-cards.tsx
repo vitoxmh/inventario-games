@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Check } from "lucide-react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import {
@@ -88,7 +88,7 @@ export function PricingCards({
   paths: { signup: string; billing: string }
 }) {
   return (
-    <div className="grid gap-6 md:grid-cols-3">
+    <div className="plans">
       {cards.map((plan, index) => {
         const isPopular = cards.length > 1 && index === Math.floor(cards.length / 2)
         const isCurrent = plan.action === "current"
@@ -107,40 +107,28 @@ export function PricingCards({
         return (
           <Card
             key={plan.slug}
-            className={cn(
-              "relative flex flex-col",
-              isPopular && "border-primary shadow-lg",
-            )}
+            className={cn("plan", isPopular && "plan--popular")}
           >
             {isPopular && (
-              <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
-                {pricing.popular}
-              </Badge>
+              <Badge className="plan__flag">{pricing.popular}</Badge>
             )}
             <CardHeader>
-              <CardTitle className="flex flex-wrap items-center gap-2">
+              <CardTitle className="plan__title">
                 {plan.name}
                 {isCurrent && (
                   <Badge variant="secondary">{pricing.yourPlan}</Badge>
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-6">
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold tracking-tight">
-                  {plan.price}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {plan.period}
-                </span>
+            <CardContent className="plan__body">
+              <div className="plan__price">
+                <span className="plan__amount">{plan.price}</span>
+                <span className="plan__period">{plan.period}</span>
               </div>
-              <ul className="space-y-3 text-sm">
+              <ul className="plan__features">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2">
-                    <Check
-                      className="size-4 shrink-0 text-primary"
-                      aria-hidden="true"
-                    />
+                  <li key={feature} className="plan__feature">
+                    <Check className="plan__check" aria-hidden="true" />
                     {feature}
                   </li>
                 ))}
@@ -151,9 +139,9 @@ export function PricingCards({
                 href={href}
                 className={cn(
                   buttonVariants({
-                    variant: isPopular ? "default" : "outline",
+                    variant: isPopular ? "primary" : "outline",
                   }),
-                  "w-full",
+                  "u-full",
                 )}
               >
                 {label}

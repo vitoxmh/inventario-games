@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { prisma } from "@/lib/db"
+import { prisma, GameStatus } from "@/lib/db"
 import { getPlanLimit } from "@/lib/plans"
+import { fetchRawgGameCredits } from "@/lib/rawg"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
+import { genreIdFromLabel, readGenreIds } from "@/lib/genre-input"
+import { flatGenres } from "@/lib/game-summary"
 
 export const dynamic = "force-dynamic"
 
@@ -12,14 +15,33 @@ async function requireUser() {
   return session
 }
 
+const MAX_CREDIT_LENGTH = 160
+
+/**
+ * Normaliza un crédito (developer / publisher) que viene del cuerpo: cadena
+ * recortada y con límite de longitud, o `null` si no viene nada.
+ */
+function readCredit(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  return value.trim().slice(0, MAX_CREDIT_LENGTH) || null
+}
+
 const createSelect = {
   id: true,
   title: true,
   platformId: true,
   platform: { select: { name: true } },
-  genre: true,
+  genres: {
+    select: {
+      genre: { select: { id: true, slug: true, nameEs: true, nameEn: true } },
+    },
+  },
+  developer: true,
+  publisher: true,
+  rating: true,
   status: true,
   condition: true,
+  parts: true,
   coverImageUrl: true,
   rawgId: true,
   playtimeMin: true,
@@ -51,7 +73,12 @@ export async function GET() {
   const plan = user?.plan ?? "FREE"
   const limit = await getPlanLimit(plan)
 
-  return NextResponse.json({ games, plan, limit, count: games.length })
+  return NextResponse.json({
+    games: games.map((game) => ({ ...game, ...flatGenres(game) })),
+    plan,
+    limit,
+    count: games.length,
+  })
 }
 
 export async function POST(request: Request) {
@@ -74,7 +101,12 @@ export async function POST(request: Request) {
     rawgId?: unknown
     title?: unknown
     platformId?: unknown
+    genreIds?: unknown
     genre?: unknown
+    developer?: unknown
+    publisher?: unknown
+    rating?: unknown
+    status?: unknown
     coverImageUrl?: unknown
     playtimeMin?: unknown
   }
@@ -127,14 +159,74 @@ export async function POST(request: Request) {
       ? Math.floor(body.playtimeMin)
       : undefined
 
+  const developer = readCredit(body.developer)
+  const publisher = readCredit(body.publisher)
+
+  // El género llega dos caminos: elegido del listado (`genreIds`, los que marcó
+  // el usuario) o deduplicado del texto que trae RAWG. El cuerpo manda por
+  // encima, igual que con los créditos: si el cliente ya envió `genreIds`, no se
+  // pisa con lo del catálogo.
+  const rawGenreLabel =
+    typeof body.genre === "string" ? body.genre.trim().slice(0, 120) : ""
+  const requested = await readGenreIds(body.genreIds)
+  if (!requested.ok) {
+    return NextResponse.json({ error: requested.error }, { status: 400 })
+  }
+  let genreIds = requested.genreIds
+  if (genreIds.length === 0 && rawGenreLabel) {
+    const fromCatalog = await genreIdFromLabel(rawGenreLabel)
+    if (fromCatalog) genreIds = [fromCatalog]
+  }
+
+  let rating: number | null = null
+  if (body.rating !== undefined && body.rating !== null && body.rating !== "") {
+    const parsed = Number(body.rating)
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+      return NextResponse.json({ error: "invalid_rating" }, { status: 400 })
+    }
+    rating = parsed
+  }
+
+  // El estado es una de las allowlist del enum, nunca un string libre. Sin el
+  // `typeof` un array de un elemento colaría como válido
+  // (`String(["WISHLIST"]) === "WISHLIST"`). Si no viene, se queda el
+  // `@default(OWNED)` del schema (mismo comportamiento que antes de que el alta
+  // manual pudiera elegirlo).
+  let status: GameStatus | undefined
+  if (body.status !== undefined && body.status !== null && body.status !== "") {
+    if (typeof body.status !== "string" || !(body.status in GameStatus)) {
+      return NextResponse.json({ error: "invalid_status" }, { status: 400 })
+    }
+    status = body.status as GameStatus
+  }
+
+  // Al añadir desde el catálogo de RAWG, los créditos se precargan con lo que
+  // devuelve la API. El cuerpo manda por encima: si el cliente ya los envió (o
+  // el usuario los escribió a mano), no se pisa ese dato con el de RAWG.
+  let credits: { developer: string | null; publisher: string | null } = {
+    developer,
+    publisher,
+  }
+  if (rawgId && !developer && !publisher) {
+    const rawgIdNumber = Number(rawgId)
+    if (Number.isInteger(rawgIdNumber)) {
+      credits = await fetchRawgGameCredits(rawgIdNumber)
+    }
+  }
+
   try {
     const game = await prisma.game.create({
       data: {
         userId: session.user.id,
         title,
         platformId,
-        genre:
-          typeof body.genre === "string" ? body.genre.trim().slice(0, 120) : null,
+        genres: {
+          create: genreIds.map((genreId) => ({ genreId })),
+        },
+        developer: credits.developer,
+        publisher: credits.publisher,
+        rating,
+        ...(status ? { status } : {}),
         coverImageUrl:
           typeof body.coverImageUrl === "string"
             ? body.coverImageUrl.slice(0, 1000)
@@ -144,7 +236,7 @@ export async function POST(request: Request) {
       },
       select: createSelect,
     })
-    return NextResponse.json({ game }, { status: 201 })
+    return NextResponse.json({ game: { ...game, ...flatGenres(game) } }, { status: 201 })
   } catch (error) {
     console.error("[games] error creando juego:", error)
     return NextResponse.json({ error: "unknown" }, { status: 500 })

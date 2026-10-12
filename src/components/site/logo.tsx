@@ -9,13 +9,8 @@ export function Logo({
   className?: string
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 text-lg font-semibold tracking-tight",
-        className,
-      )}
-    >
-      <Gamepad2 className="size-5 text-primary" aria-hidden="true" />
+    <span className={cn("logo", className)}>
+      <Gamepad2 className="logo__mark" aria-hidden="true" />
       {name}
     </span>
   )

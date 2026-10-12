@@ -82,7 +82,7 @@ export function GameCardActions({
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="game-card__actions">
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -90,7 +90,6 @@ export function GameCardActions({
               variant="ghost"
               size="icon-sm"
               aria-label="Ajustes"
-              className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           }
         >
@@ -126,7 +125,7 @@ export function GameCardActions({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            variant="destructive"
+            variant="danger"
             onClick={() => setDeleteOpen(true)}
           >
             <Trash2 aria-hidden="true" />

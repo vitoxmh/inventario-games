@@ -4,6 +4,22 @@ export type PlatformOption = {
   slug: string
 }
 
+/**
+ * Plataformas en orden alfabético, que es como las ve el usuario en los
+ * desplegables. No se usa `orderBy: { name: "asc" }` de Postgres porque su
+ * collation pone las minúsculas al final ("Xbox" antes que "iOS"): el nombre
+ * tiene un solo idioma, así que ordenar en JS con `sensitivity: "base"` da el
+ * mismo resultado en las dos versiones de la app.
+ *
+ * `Array.prototype.sort` es estable, así que a igualdad de nombre se respeta el
+ * orden de entrada.
+ */
+export function sortPlatforms<T extends PlatformOption>(platforms: T[]): T[] {
+  return [...platforms].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  )
+}
+
 export function normalizePlatform(value: string): string {
   return value
     .normalize("NFD")

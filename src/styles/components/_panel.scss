@@ -1,0 +1,135 @@
+@use "../abstracts" as *;
+
+/*
+ * Paneles de gestión (admin y páginas de datos): caja con borde para una tabla
+ * o un formulario de alta, la rejilla de campos en línea y los agrupados de
+ * celda. Es el patrón que comparten `admin/*-client.tsx` y las páginas de
+ * facturación, así que vive una sola vez.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-3);
+}
+
+.panel__title {
+  font-family: var(--gv-font-heading);
+  font-size: var(--gv-text-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.panel__box {
+  padding: 0.75rem;
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+}
+
+.panel__scroll {
+  overflow-x: auto;
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+}
+
+// Fila de alta: los campos se alinean por la base y se reparten con wrap.
+.panel__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--gv-surface);
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+}
+
+.panel__note {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+// --- Campos en línea -------------------------------------------------------
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field__label {
+  font-size: var(--gv-text-xs);
+  font-weight: 500;
+  color: var(--gv-text-muted);
+}
+
+.field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+// --- Agrupados dentro de una celda ----------------------------------------
+
+.cell-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.cell-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cell-row--wide {
+  gap: 0.5rem;
+}
+
+.cell-label {
+  font-size: var(--gv-text-xs);
+  white-space: nowrap;
+  color: var(--gv-text-muted);
+}
+
+.cell-text {
+  font-size: var(--gv-text-sm);
+  color: var(--gv-text-muted);
+}
+
+.cell-value {
+  font-weight: 500;
+}
+
+// Acciones al final de una fila de tabla, alineadas a la derecha.
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.row-actions--center {
+  justify-content: center;
+}
+
+// Cabecera o celda que no tiene nada: el "no hay datos" de una tabla.
+.empty-cell {
+  padding-block: var(--gv-space-4);
+  text-align: center;
+  color: var(--gv-text-muted);
+}
+
+.icon-danger {
+  color: var(--gv-danger);
+}
+
+.icon-xs {
+  width: 0.875rem;
+  height: 0.875rem;
+}

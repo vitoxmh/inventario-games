@@ -56,8 +56,8 @@ export function PaymentHistory({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Receipt className="size-4" aria-hidden="true" />
+        <CardTitle className="pay-history__title">
+          <Receipt aria-hidden="true" />
           {dict.payments.title}
         </CardTitle>
         <CardDescription>
@@ -68,7 +68,7 @@ export function PaymentHistory({
       </CardHeader>
       {payments.length > 0 && (
         <CardContent>
-          <ul className="flex flex-col divide-y">
+          <ul className="pay-history__list">
             {payments.map((payment) => {
               const amount = formatMinorCurrency(
                 payment.amountMinor,
@@ -79,17 +79,17 @@ export function PaymentHistory({
               return (
                 <li
                   key={payment.id}
-                  className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                  className="pay-history__row"
                 >
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">
+                  <div className="pay-history__main">
+                    <span className="pay-history__plan">
                       {plan}
-                      <span className="font-normal text-muted-foreground">
+                      <span className="pay-history__period">
                         {" "}
                         {durationPeriodLabel(payment.durationDays, pricing, locale)}
                       </span>
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="pay-history__ref">
                       {payment.provider === "mp"
                         ? dict.providerMercadoPago
                         : dict.providerStripe}
@@ -97,11 +97,11 @@ export function PaymentHistory({
                       {payment.externalId}
                     </span>
                   </div>
-                  <div className="flex flex-col sm:items-end">
-                    <span className="text-sm font-medium">
+                  <div className="pay-history__amounts">
+                    <span className="pay-history__amount">
                       {amount ?? dict.payments.amountUnknown}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="pay-history__date">
                       {dateFormat.format(payment.paidAt)}
                     </span>
                   </div>
@@ -110,7 +110,7 @@ export function PaymentHistory({
             })}
           </ul>
           {total > payments.length && (
-            <p className="mt-3 text-xs text-muted-foreground">
+            <p className="pay-history__limited">
               {dict.payments.limited}
             </p>
           )}

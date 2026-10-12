@@ -1,0 +1,181 @@
+@use "abstracts" as *;
+
+/*
+ * Utilidades de maquetación y tipografía.
+ *
+ * Son deliberadamente pocas y de alcance general (`u-`): cualquier cosa que
+ * necesite más de un par de propiedades debe ser un bloque BEM propio en
+ * `components/`, no otra utilidad.
+ */
+
+// --- Maquetación -----------------------------------------------------------
+
+.u-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gv-space-2);
+}
+
+.u-stack--lg {
+  gap: var(--gv-space-4);
+}
+
+.u-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gv-space-2);
+}
+
+.u-cluster--tight {
+  gap: 0.375rem;
+}
+
+.u-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+// Un contenedor flexible puede necesitar poder encogerse por debajo de su
+// contenido (texto largo, tablas) sin desbordar.
+.u-min-0 {
+  min-width: 0;
+}
+
+
+// Rejilla responsive de dos columnas; se colapsa a una sola.
+.u-cols-2 {
+  display: grid;
+  gap: var(--gv-space-2);
+  grid-template-columns: 1fr;
+
+  @include from($bp-sm) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.u-cols-3 {
+  display: grid;
+  gap: var(--gv-space-2);
+  grid-template-columns: 1fr;
+
+  @include from($bp-sm) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.u-full {
+  width: 100%;
+}
+
+// --- Tipografía ------------------------------------------------------------
+
+.u-muted {
+  color: var(--gv-text-muted);
+}
+
+.u-subtle {
+  color: var(--gv-text-subtle);
+}
+
+.u-danger {
+  color: var(--gv-danger);
+}
+
+.u-success {
+  color: var(--gv-success);
+}
+
+.u-strong {
+  font-weight: 600;
+}
+
+.u-xs {
+  font-size: var(--gv-text-xs);
+}
+
+.u-sm {
+  font-size: var(--gv-text-sm);
+}
+
+.u-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.u-right {
+  text-align: right;
+}
+
+.u-center {
+  text-align: center;
+}
+
+// Contenido atenuado: algo que sigue en pantalla pero ya no está disponible.
+.u-faded {
+  opacity: 0.4;
+}
+
+.u-balance {
+  text-wrap: balance;
+}
+
+.u-pretty {
+  text-wrap: pretty;
+}
+
+// --- Visibility ------------------------------------------------------------
+
+// Solo para lectores de pantalla: oculta visualmente pero sigue announcing.
+.u-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// Un botón que se ajusta a su propio texto en vez de estirarse.
+.u-fit {
+  width: fit-content;
+}
+
+.u-flex {
+  display: flex;
+}
+
+.u-gap-2 {
+  gap: 0.5rem;
+}
+
+.u-hide-sm {
+  @include from($bp-sm) {
+    display: none;
+  }
+}
+
+.u-only-sm {
+  display: none;
+
+  @include from($bp-sm) {
+    display: revert;
+  }
+}
+
+.u-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.u-icon--lg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.u-icon--xl {
+  width: 2rem;
+  height: 2rem;
+}

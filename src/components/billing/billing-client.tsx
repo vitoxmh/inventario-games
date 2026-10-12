@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Check, CreditCard, Settings, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -12,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 export type Provider = "stripe" | "mp"
 
@@ -254,14 +255,14 @@ export function BillingClient({
     limit === null ? 100 : Math.min(100, Math.round((count / (limit || 1)) * 100))
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="billing">
       {checkout === "success" && (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="notice notice--success">
           {dict.successBanner}
         </div>
       )}
       {checkout === "canceled" && (
-        <div className="rounded-lg border border-muted bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        <div className="notice notice--muted">
           {dict.canceledBanner}
         </div>
       )}
@@ -274,23 +275,23 @@ export function BillingClient({
             {statusLabel ? ` · ${statusLabel}` : ""}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{dict.usage}</span>
-              <span className="font-medium">{usageText}</span>
+        <CardContent className="u-stack u-stack--lg">
+          <div className="billing__usage">
+            <div className="billing__usage-head">
+              <span className="u-muted">{dict.usage}</span>
+              <span className="billing__usage-value">{usageText}</span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div className="billing__usage-bar">
               <div
-                className="h-full rounded-full bg-primary transition-all"
+                className="billing__usage-fill"
                 style={{ width: `${percent}%` }}
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{dict.usageImages}</span>
-            <span className="font-medium">
+          <div className="billing__usage-row">
+            <span className="u-muted">{dict.usageImages}</span>
+            <span className="billing__usage-value">
               {imageCount} {dict.usageOf} {imageLimit} {dict.usagePerGame}
             </span>
           </div>
@@ -309,39 +310,33 @@ export function BillingClient({
                   : dict.manageSubscription}
             </Button>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="field-error">{error}</p>}
         </CardContent>
       </Card>
 
       {tiers.length > 0 && (
-        <div className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold">{dict.plansTitle}</h2>
+        <div className="billing__plans">
+          <h2 className="billing__plans-title">{dict.plansTitle}</h2>
 
           {!isActive && !hasProviders && (
-            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-              {dict.stripeNotConfigured}
-            </div>
+            <div className="empty empty--sm">{dict.stripeNotConfigured}</div>
           )}
 
           {!isActive && hasProviders && providers.length > 1 && (
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                {dict.paymentWith}
-              </span>
-              <div className="flex gap-2">
+            <div className="u-stack">
+              <span className="u-sm u-strong u-muted">{dict.paymentWith}</span>
+              <div className="u-cluster u-cluster--tight">
                 {providers.map((p) => (
                   <button
                     key={p}
                     type="button"
                     onClick={() => setProvider(p)}
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
-                      provider === p
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-muted text-muted-foreground hover:bg-muted/40",
+                      "provider-toggle",
+                      provider === p ? "provider-toggle--on" : "provider-toggle--off",
                     )}
                   >
-                    <CreditCard className="size-4" />
+                    <CreditCard className="u-icon" />
                     {dict[PROVIDER_LABELS[p]]}
                   </button>
                 ))}
@@ -349,7 +344,7 @@ export function BillingClient({
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="billing__grid">
             {tiers.map((tier) => {
               const isCurrent = tier.action === "current"
               const isUpgrade = tier.action === "upgrade"
@@ -359,33 +354,31 @@ export function BillingClient({
               return (
                 <Card
                   key={tier.slug}
-                  className={cn(isUpgrade && "border-primary shadow-sm")}
+                  className={cn(
+                    "billing__tier",
+                    isUpgrade && "billing__tier--upgrade",
+                  )}
                 >
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="billing__tier-title">
                       {tier.name}
                       {isCurrent && (
-                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                          {dict.currentPlan}
-                        </span>
+                        <Badge variant="outline">{dict.currentPlan}</Badge>
                       )}
                     </CardTitle>
-                    <CardDescription className="text-2xl font-semibold text-foreground">
+                    <CardDescription className="billing__tier-price">
                       {priceFor(tier)}
-                      <span className="text-sm font-normal text-muted-foreground">
+                      <span className="billing__tier-period">
                         {" "}
                         {tier.period}
                       </span>
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="flex flex-col gap-4">
-                    <ul className="space-y-2 text-sm text-muted-foreground">
+                  <CardContent className="u-stack u-stack--lg">
+                    <ul className="billing__features">
                       {tier.features.map((feature) => (
-                        <li key={feature} className="flex items-center gap-2">
-                          <Check
-                            className="size-4 shrink-0 text-primary"
-                            aria-hidden="true"
-                          />
+                        <li key={feature} className="billing__feature">
+                          <Check aria-hidden="true" />
                           {feature}
                         </li>
                       ))}
@@ -403,7 +396,7 @@ export function BillingClient({
                         <Sparkles aria-hidden="true" />
                         {dict.upgrade} {tier.name}
                         {busy === tier.slug && (
-                          <span className="ml-2">{dict.processing}</span>
+                          <span className="billing__pending">{dict.processing}</span>
                         )}
                       </Button>
                     ) : (
@@ -414,7 +407,7 @@ export function BillingClient({
                       >
                         {dict.subscribe}
                         {busy === tier.slug && (
-                          <span className="ml-2">{dict.processing}</span>
+                          <span className="billing__pending">{dict.processing}</span>
                         )}
                       </Button>
                     )}
@@ -426,8 +419,8 @@ export function BillingClient({
         </div>
       )}
 
-      <p className="text-sm text-muted-foreground">
-        <CreditCard className="mr-1 inline size-4 align-text-bottom" />
+      <p className="billing__footprint">
+        <CreditCard aria-hidden="true" />
         Stripe · Mercado Pago
       </p>
     </div>

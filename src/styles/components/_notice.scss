@@ -1,0 +1,48 @@
+@use "../abstracts" as *;
+
+/*
+ * Avisos en línea. Los usan los formularios de auth y las páginas de estado
+ * (verificación, cuenta suspendida) para el feedback de una acción.
+ */
+.notice {
+  padding: 0.5rem 0.75rem;
+  font-size: var(--gv-text-sm);
+  border: 1px solid transparent;
+  border-radius: var(--gv-radius-md);
+}
+
+.notice--error {
+  color: var(--gv-danger);
+  background: var(--gv-danger-soft);
+  border-color: var(--gv-danger);
+}
+
+.notice--success {
+  color: var(--gv-success);
+  background: var(--gv-success-soft);
+  border-color: var(--gv-success);
+}
+
+.notice--info {
+  color: var(--gv-info);
+  background: var(--gv-info-soft);
+  border-color: var(--gv-info);
+}
+
+.notice--warning {
+  color: var(--gv-warning);
+  background: var(--gv-warning-soft);
+  border-color: var(--gv-warning);
+}
+
+.notice--center {
+  text-align: center;
+}
+
+// Aviso neutro: sin semántica de estado, solo informa (por ejemplo, que el
+// pago quedó cancelado y no se cobró nada).
+.notice--muted {
+  color: var(--gv-text-muted);
+  background: var(--gv-surface-2);
+  border-color: var(--gv-border);
+}

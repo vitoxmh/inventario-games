@@ -65,7 +65,7 @@ export function AdminPaymentsClient({
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-2xl font-semibold tracking-tight">{dict.payments}</h2>
-      <p className="max-w-2xl text-sm text-muted-foreground">
+      <p className="max-w-2xl text-sm u-muted">
         {dict.paymentsHint}
       </p>
 
@@ -75,7 +75,7 @@ export function AdminPaymentsClient({
             <TableRow>
               <TableHead>{dict.provider}</TableHead>
               <TableHead>{dict.status}</TableHead>
-              <TableHead className="text-right">{dict.paymentsEnabled}</TableHead>
+              <TableHead className="u-right">{dict.paymentsEnabled}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,7 +87,7 @@ export function AdminPaymentsClient({
                 <TableCell>
                   <div className="flex flex-col gap-1">
                     {row.available ? (
-                      <Badge variant="default">{dict.paymentsAvailable}</Badge>
+                      <Badge variant="success">{dict.paymentsAvailable}</Badge>
                     ) : row.enabled ? (
                       <Badge variant="secondary">
                         {dict.paymentsMissingConfig}
@@ -96,16 +96,16 @@ export function AdminPaymentsClient({
                       <Badge variant="outline">{dict.paymentsOff}</Badge>
                     )}
                     {!row.configured && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs u-muted">
                         {dict.paymentsMissingEnv}
                         {row.missingEnv.join(", ")}
                       </span>
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="u-right">
                   <div className="flex items-center justify-end gap-2">
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm u-muted">
                       {row.enabled ? dict.active : dict.inactive}
                     </span>
                     <Switch

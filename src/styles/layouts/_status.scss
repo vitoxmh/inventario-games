@@ -1,0 +1,53 @@
+@use "../abstracts" as *;
+
+/* Páginas de estado: 404, cuenta suspendida. */
+.status-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gv-space-3);
+  width: 100%;
+  max-width: 28rem;
+  padding: var(--gv-space-5) var(--gv-space-3);
+  margin-inline: auto;
+  text-align: center;
+}
+
+.status-page__code {
+  font-size: var(--gv-text-3xl);
+
+  @include from($bp-sm) {
+    font-size: var(--gv-text-4xl);
+  }
+}
+
+.status-page__text {
+  color: var(--gv-text-muted);
+}
+
+.status-page__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.status-page__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  color: var(--gv-danger);
+  background: var(--gv-danger-soft);
+  border-radius: var(--gv-radius-full);
+
+  > svg {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+.status-page__title {
+  font-size: var(--gv-text-xl);
+  font-weight: 700;
+}

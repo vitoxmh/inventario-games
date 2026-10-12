@@ -33,7 +33,7 @@ type AdminGame = {
   id: string
   title: string
   platform: string
-  genre: string | null
+  genres: string[]
   status: string
   createdAt: string
   ownerEmail: string
@@ -113,7 +113,7 @@ export function AdminGamesClient({
         className="relative w-full sm:w-80"
       >
         <Search
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 u-muted"
           aria-hidden="true"
         />
         <Input
@@ -133,13 +133,13 @@ export function AdminGamesClient({
               <TableHead>{dict.game}</TableHead>
               <TableHead>{dict.owner}</TableHead>
               <TableHead>{dict.status}</TableHead>
-              <TableHead className="text-right">{dict.actions}</TableHead>
+              <TableHead className="u-right">{dict.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {state.games.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={4} className="py-8 u-center u-muted">
                   {dict.noGames}
                 </TableCell>
               </TableRow>
@@ -149,13 +149,15 @@ export function AdminGamesClient({
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-medium">{game.title}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs u-muted">
                         {game.platform}
-                        {game.genre ? ` · ${game.genre}` : ""}
+                        {game.genres.length > 0
+                          ? ` · ${game.genres.join(", ")}`
+                          : ""}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="u-muted">
                     {game.ownerEmail}
                   </TableCell>
                   <TableCell>
@@ -163,14 +165,14 @@ export function AdminGamesClient({
                       {statuses[game.status] ?? game.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="u-right">
                     <AlertDialog>
                       <AlertDialogTrigger
                         render={
                           <Button variant="ghost" size="icon-sm" />
                         }
                       >
-                        <Trash2 className="text-destructive" aria-hidden="true" />
+                        <Trash2 className="u-danger" aria-hidden="true" />
                         <span className="sr-only">{dict.removeGame}</span>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -206,7 +208,7 @@ export function AdminGamesClient({
 
       {state.pages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm u-muted">
             {dict.totalGames}: {state.total}
           </p>
           <div className="flex items-center gap-2">
@@ -220,7 +222,7 @@ export function AdminGamesClient({
               <ChevronLeft aria-hidden="true" />
               {dict.prev}
             </Button>
-            <span className="text-sm text-muted-foreground tabular-nums">
+            <span className="text-sm u-muted u-numeric">
               {page} / {state.pages}
             </span>
             <Button

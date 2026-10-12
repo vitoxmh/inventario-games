@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { prisma, GameStatus } from "@/lib/db"
+import { prisma, GameParts, GameStatus } from "@/lib/db"
 import { getImageLimit } from "@/lib/plans"
+import { readGenreIds } from "@/lib/genre-input"
+import { isConditionKey } from "@/lib/conditions"
+import { readParts } from "@/lib/game-parts"
+import { flatGenres } from "@/lib/game-summary"
 
 export const dynamic = "force-dynamic"
 
@@ -29,10 +33,14 @@ export async function PATCH(
   let body: {
     title?: unknown
     platformId?: unknown
-    genre?: unknown
+    genreIds?: unknown
+    developer?: unknown
+    publisher?: unknown
+    rating?: unknown
     status?: unknown
     playtimeMin?: unknown
     condition?: unknown
+    parts?: unknown
     purchasePrice?: unknown
     purchaseDate?: unknown
     notes?: unknown
@@ -45,13 +53,20 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid_body" }, { status: 400 })
   }
 
+  // `platformId` va plano a propósito: en `updateMany` la variante "checked" del
+  // `data` no incluye las claves foráneas (ni aunque se escriban anidadas con
+  // `connect`), así que la única forma válida de cambiar la plataforma es la
+  // variante sin comprobar relaciones, que es la que acepta `platformId`.
   const data: {
     title?: string
     platformId?: string
-    genre?: string | null
+    developer?: string | null
+    publisher?: string | null
+    rating?: number | null
     status?: GameStatus
     playtimeMin?: number | null
     condition?: string | null
+    parts?: GameParts[]
     purchasePrice?: number | null
     purchaseDate?: Date | null
     notes?: string | null
@@ -81,16 +96,44 @@ export async function PATCH(
     data.platformId = platformId
   }
 
-  if (body.genre !== undefined) {
-    data.genre = String(body.genre ?? "").trim().slice(0, 120) || null
+  // Los géneros no entran en `data`: en `updateMany` la variante "checked" del
+  // `data` no incluye las claves foráneas (ni aunque se escriban anidadas con
+  // `connect`), así que el conjunto se reemplaza aparte, en la misma transacción
+  // que el resto. `undefined` = no tocar; `[]` = dejar el juego sin género.
+  let genreIds: string[] | undefined
+  if (body.genreIds !== undefined) {
+    const resolved = await readGenreIds(body.genreIds)
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: 400 })
+    }
+    genreIds = resolved.genreIds
+  }
+
+  if (body.developer !== undefined) {
+    data.developer = String(body.developer ?? "").trim().slice(0, 160) || null
+  }
+
+  if (body.publisher !== undefined) {
+    data.publisher = String(body.publisher ?? "").trim().slice(0, 160) || null
+  }
+
+  if (body.rating !== undefined && body.rating !== null && body.rating !== "") {
+    const rating = Number(body.rating)
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return NextResponse.json({ error: "invalid_rating" }, { status: 400 })
+    }
+    data.rating = rating
+  } else if (body.rating === null || body.rating === "") {
+    data.rating = null
   }
 
   if (body.status !== undefined) {
-    const status = String(body.status)
-    if (!(status in GameStatus)) {
+    // `typeof` estricto, no `String(...)`: sin él un array de un elemento se
+    // colaría como estado válido (`String(["OWNED"]) === "OWNED"`).
+    if (typeof body.status !== "string" || !(body.status in GameStatus)) {
       return NextResponse.json({ error: "invalid_status" }, { status: 400 })
     }
-    data.status = status as GameStatus
+    data.status = body.status as GameStatus
   }
 
   if (
@@ -107,9 +150,40 @@ export async function PATCH(
     data.playtimeMin = null
   }
 
+  // El estado físico es una clave de la escalera cerrada de
+  // `src/lib/conditions.ts`, no texto libre: la allowlist es la validación (400
+  // `invalid_condition`), y `null`/"" lo vacían. Se compara el tipo antes de
+  // validar porque `String(["GOOD"])` es "GOOD": un array no puede pasar por
+  // "GOOD" solo por tener un elemento.
   if (body.condition !== undefined) {
-    const condition = String(body.condition ?? "").trim().slice(0, 60)
-    data.condition = condition || null
+    if (body.condition === null || body.condition === "") {
+      data.condition = null
+    } else if (
+      typeof body.condition !== "string" ||
+      !isConditionKey(body.condition)
+    ) {
+      return NextResponse.json({ error: "invalid_condition" }, { status: 400 })
+    } else {
+      data.condition = body.condition
+    }
+  }
+
+  // Qué piezas le FALTAN a la copia. Es una lista de enum de Prisma
+  // (`Game.parts`), así que tiene que llegar como array: `readParts` valida
+  // elemento a elemento, quita duplicados y devuelve el orden canónico, o `null`
+  // si no es una lista válida (de ahí el 400, sin dejar que un string o un array
+  // con cualquier cosa llegue a la BD). `[]` la deja vacía, que es "no le falta
+  // nada", y omitir el campo no lo toca.
+  //
+  // No se cruza con el estado a propósito: si el juego pasa a DIGITAL la
+  // interfaz deja de mandar el campo, pero el valor guardado no se borra (es
+  // información de la copia, y volver a ponerlo en físico la recupera).
+  if (body.parts !== undefined) {
+    const parts = body.parts === null ? [] : readParts(body.parts)
+    if (!parts) {
+      return NextResponse.json({ error: "invalid_parts" }, { status: 400 })
+    }
+    data.parts = parts
   }
 
   if (body.purchasePrice !== undefined && body.purchasePrice !== null) {
@@ -186,6 +260,14 @@ export async function PATCH(
       if (result.count === 0) {
         throw new Error("not_found")
       }
+      if (genreIds !== undefined) {
+        await tx.gameGenre.deleteMany({ where: { gameId: id } })
+        if (genreIds.length > 0) {
+          await tx.gameGenre.createMany({
+            data: genreIds.map((genreId) => ({ gameId: id, genreId })),
+          })
+        }
+      }
       if (images !== undefined) {
         await tx.gameImage.deleteMany({ where: { gameId: id } })
         if (images.length > 0) {
@@ -205,9 +287,19 @@ export async function PATCH(
 
   const game = await prisma.game.findFirst({
     where: { id, userId: session.user.id },
-    include: { images: { orderBy: { position: "asc" } } },
+    include: {
+      images: { orderBy: { position: "asc" } },
+      genres: {
+        select: { genre: { select: { id: true, slug: true, nameEs: true, nameEn: true } } },
+      },
+    },
   })
-  return NextResponse.json({ game })
+  // Puede haber desaparecido entre la transacción y esta relectura (borrado en
+  // paralelo): se filtra siempre por propietario, así que `null` es un 404.
+  if (!game) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 })
+  }
+  return NextResponse.json({ game: { ...game, ...flatGenres(game) } })
 }
 
 export async function DELETE(

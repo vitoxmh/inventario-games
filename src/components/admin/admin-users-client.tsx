@@ -150,7 +150,7 @@ export function AdminUsersClient({
         <h2 className="text-2xl font-semibold tracking-tight">{dict.users}</h2>
         <form onSubmit={search} className="relative">
           <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 u-muted"
             aria-hidden="true"
           />
 <Input
@@ -171,15 +171,15 @@ export function AdminUsersClient({
               <TableHead>{dict.email}</TableHead>
               <TableHead>{dict.plan}</TableHead>
               <TableHead>{dict.role}</TableHead>
-              <TableHead className="text-center">{dict.gamesCount}</TableHead>
+              <TableHead className="u-center">{dict.gamesCount}</TableHead>
               <TableHead>{dict.status}</TableHead>
-              <TableHead className="text-right">{dict.actions}</TableHead>
+              <TableHead className="u-right">{dict.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {state.users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 u-center u-muted">
                   {dict.noUsers}
                 </TableCell>
               </TableRow>
@@ -189,7 +189,7 @@ export function AdminUsersClient({
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-medium">{user.email}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs u-muted">
                         {user.name ?? "—"}
                         {user.emailVerifiedAt ? "" : ` · ${dict.unverified}`}
                       </span>
@@ -222,21 +222,21 @@ export function AdminUsersClient({
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                    <Badge variant={user.role === "admin" ? "primary" : "secondary"}>
                       {user.role === "admin" ? dict.roleAdmin : dict.roleUser}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-center tabular-nums">
+                  <TableCell className="u-center u-numeric">
                     {user.gameCount}
                   </TableCell>
                   <TableCell>
                     {user.bannedAt ? (
-                      <Badge variant="destructive">{dict.banned}</Badge>
+                      <Badge variant="danger">{dict.banned}</Badge>
                     ) : (
                       <Badge variant="outline">{dict.active}</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="u-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button
                         type="button"
@@ -255,7 +255,7 @@ export function AdminUsersClient({
                       </Button>
                       <Button
                         type="button"
-                        variant={user.bannedAt ? "secondary" : "destructive"}
+                        variant={user.bannedAt ? "secondary" : "danger"}
                         size="sm"
                         onClick={() => toggleBan(user)}
                       >
@@ -277,7 +277,7 @@ export function AdminUsersClient({
 
       {state.pages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm u-muted">
             {dict.totalUsers}: {state.total}
           </p>
           <div className="flex items-center gap-2">
@@ -291,7 +291,7 @@ export function AdminUsersClient({
               <ChevronLeft aria-hidden="true" />
               {dict.prev}
             </Button>
-            <span className="text-sm text-muted-foreground tabular-nums">
+            <span className="text-sm u-muted u-numeric">
               {page} / {state.pages}
             </span>
             <Button

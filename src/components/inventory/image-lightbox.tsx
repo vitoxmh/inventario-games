@@ -42,20 +42,20 @@ export function ImageLightbox({
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+      <div className="gallery">
         {images.map((url, imageIndex) => (
           <button
             key={url}
             type="button"
             onClick={() => openAt(imageIndex)}
             aria-label={dict.viewImage}
-            className="group overflow-hidden rounded-lg border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="gallery__item"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={url}
               alt=""
-              className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="gallery__thumb"
             />
           </button>
         ))}
@@ -64,16 +64,16 @@ export function ImageLightbox({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           showCloseButton={false}
-          className="h-screen w-screen max-w-none gap-0 overflow-hidden bg-black/95 p-0 ring-0 sm:max-w-none"
+          size="fullscreen"
         >
-          <DialogTitle className="sr-only">{dict.galleryTitle}</DialogTitle>
+          <DialogTitle className="u-sr-only">{dict.galleryTitle}</DialogTitle>
 
-          <div className="flex h-full items-center justify-center px-16">
+          <div className="lightbox__stage">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={images[index]}
               alt=""
-              className="max-h-[85vh] max-w-full rounded-lg object-contain"
+              className="lightbox__image"
             />
           </div>
 
@@ -83,7 +83,7 @@ export function ImageLightbox({
             size="icon"
             aria-label={dict.closeImage}
             onClick={() => setOpen(false)}
-            className="absolute top-3 right-3 text-white hover:bg-white/10 hover:text-white"
+            className="lightbox__control lightbox__control--close"
           >
             <X aria-hidden="true" />
           </Button>
@@ -100,7 +100,7 @@ export function ImageLightbox({
                     current === 0 ? images.length - 1 : current - 1,
                   )
                 }
-                className="absolute top-1/2 left-3 -translate-y-1/2 text-white hover:bg-white/10 hover:text-white"
+                className="lightbox__control lightbox__control--prev"
               >
                 <ChevronLeft aria-hidden="true" />
               </Button>
@@ -110,7 +110,7 @@ export function ImageLightbox({
                 size="icon"
                 aria-label={dict.next}
                 onClick={() => setIndex((current) => (current + 1) % images.length)}
-                className="absolute top-1/2 right-3 -translate-y-1/2 text-white hover:bg-white/10 hover:text-white"
+                className="lightbox__control lightbox__control--next"
               >
                 <ChevronRight aria-hidden="true" />
               </Button>
@@ -118,7 +118,7 @@ export function ImageLightbox({
           )}
 
           {images.length > 1 && (
-            <p className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-xs text-white">
+            <p className="lightbox__counter">
               {index + 1} / {images.length}
             </p>
           )}

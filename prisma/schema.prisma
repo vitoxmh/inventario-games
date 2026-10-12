@@ -26,14 +26,36 @@ enum PaymentProvider {
   mp
 }
 
+// Estado de la copia en la colección. `CIB` ("complete in box") se quitó: ser
+// completo no es un estado de la copia, es qué piezas le faltan, y eso lo dice
+// `Game.parts` (lista vacía = no le falta nada). Un juego que estaba en CIB pasó
+// a SEALED en la migración `20260930160000_parts_and_status_without_cib`.
 enum GameStatus {
   OWNED
   SEALED
-  CIB
   LOOSE
   DIGITAL
   WISHLIST
   SELLING
+}
+
+// Qué piezas físicas le FALTAN a la copia, de las tres que la constituyen: el
+// cartucho o disco, la caja y el manual. Es un enum y no texto libre (a
+// diferencia de `Game.condition`, que venía de un campo libre ya escrito) porque
+// es un listado cerrado y corto: la BD lo valida y no cabe el "casi completo".
+//
+// Son las piezas que faltan, no las que tiene, porque es lo que el usuario quiere
+// contestar ("le faltan la caja y el manual") y para eso se marca más de una. La
+// columna es una LISTA de enum (`GameParts[]`), igual que harían tres columnas
+// booleanas pero sin el "se me olvidó desmarcar el de al lado": la ausencia en la
+// lista significa que esa pieza está. Lista vacía = no le falta nada.
+//
+// La tabla puente de `Game.genres` no hace falta aquí: un género es un catálogo
+// que edita el admin, estas tres piezas son un enumerado fijo del código.
+enum GameParts {
+  GAME
+  BOX
+  MANUAL
 }
 
 model Plan {
@@ -96,6 +118,28 @@ model Platform {
   @@index([slug])
 }
 
+// Listado cerrado de géneros, editable desde el admin. A diferencia de
+// `Platform`, que solo tiene un nombre, aquí se guardan los dos: el género se
+// muestra junto al resto de la ficha y el listado está en español e inglés
+// (mismo convenio que `Plan.nameEs` / `Plan.nameEn`).
+model Genre {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  nameEs    String
+  nameEn    String
+  // Orden del selector. El alfabético en dos idiomas no coincide, así que el
+  // orden se fija a mano en vez de ordenar por nombre. Los géneros que se
+  // crearon al migrar textos sueltos van con `LEGACY_SORT_ORDER` para salir al
+  // final del desplegable, donde el admin los puede renombrar o borrar.
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  games GameGenre[]
+
+  @@index([slug])
+}
+
 // Interruptor de cada medio de pago, editable desde el admin. Solo guarda el
 // "lo quiere el admin": que el proveedor esté disponible sigue exigiendo sus
 // variables de entorno (ver `src/lib/payment-providers.ts`). Si no hay fila, el
@@ -132,9 +176,9 @@ model User {
   // (`/api/mp/expire`) degrada a FREE a quien lo tenga vencido, porque nadie
   // renueva solo (MP no agenda cobros). Un pago aprobado lo actualiza el webhook
   // `order`; nunca la vuelta del usuario desde la return URL.
-  mpLastChargeAt DateTime?
+mpLastChargeAt DateTime?
 
-  games       Game[]
+  games      Game[]
   sessions    Session[]
   accounts    Account[]
   mpCheckouts MpCheckout[]
@@ -238,25 +282,59 @@ model Game {
   userId        String
   title         String
   platformId    String
-  genre         String?
+  // Créditos del juego. Los rellena el usuario a mano y, cuando el juego se
+  // añade desde el catálogo de RAWG, se precargan con el primer desarrollador y
+  // el primer publisher que devuelve la API (ver `src/lib/rawg.ts`).
+  developer     String?
+  publisher     String?
+  // Valoración personal del 1 al 5 (0 estrellas = sin valorar). Es un entero
+  // pequeño y no un decimal porque la interfaz solo ofrece cinco niveles; el
+  // rango se valida en la API, no aquí, para no poder escribir un 6 en la BD.
+  rating        Int?
   status        GameStatus @default(OWNED)
   condition     String?
-  purchasePrice Decimal?   @db.Decimal(10, 2)
+  // Piezas que le FALTAN a la copia física (cartucho/disco, caja, manual), en
+  // `GAME_PARTS_VALUES` (`src/lib/game-parts.ts`). Lista vacía = no le falta
+  // nada. Solo tiene sentido en los estados físicos, así que la interfaz lo
+  // oculta en DIGITAL y WISHLIST; la API no lo borra por su cuenta si el estado
+  // cambia (quien lo rellenó sigue siendo la única fuente de la verdad).
+  parts         GameParts[] @default([])
+  purchasePrice Decimal?     @db.Decimal(10, 2)
   purchaseDate  DateTime?
   notes         String?
   coverImageUrl String?
   rawgId        String?
   playtimeMin   Int?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   platform Platform    @relation(fields: [platformId], references: [id], onDelete: Restrict)
+  genres   GameGenre[]
   images   GameImage[]
 
   @@index([userId])
   @@index([platformId])
   @@index([status])
+}
+
+// Géneros de un juego: la relación es de many a many, porque un juego puede
+// encajar en varios a la vez (acción y plataformas, por ejemplo).
+//
+// La tabla puente es explícita y no una relación implícita de Prisma por dos
+// razones: el borrado de un género tiene que quedar documentado en el esquema
+// (`Cascade` quita la asociación y no toca la ficha, al contrario que el
+// `SetNull` que tenía `Game.genreId`), y así las consultas por género tienen un
+// índice propio (`genreId`) además de la clave primaria por juego.
+model GameGenre {
+  gameId  String
+  genreId String
+
+  game  Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([gameId, genreId])
+  @@index([genreId])
 }
 
 model GameImage {

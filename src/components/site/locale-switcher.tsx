@@ -35,7 +35,7 @@ export function LocaleSwitcher({
       onClick={switchLocale}
       aria-label={label}
     >
-      <Languages className="size-4" aria-hidden="true" />
+      <Languages className="u-icon" aria-hidden="true" />
       {label}
     </Button>
   )

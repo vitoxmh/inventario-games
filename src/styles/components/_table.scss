@@ -1,0 +1,75 @@
+@use "../abstracts" as *;
+
+.table-container {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  font-size: var(--gv-text-sm);
+  border-collapse: collapse;
+}
+
+.table__header {
+  border-bottom: 1px solid var(--gv-border);
+}
+
+.table__body tr:last-child {
+  border-bottom: 0;
+}
+
+.table__footer {
+  font-weight: 600;
+  background: var(--gv-surface-2);
+  border-top: 1px solid var(--gv-border);
+}
+
+.table__row {
+  border-bottom: 1px solid var(--gv-border);
+  transition: background-color $dur-fast $ease-out;
+
+  &:hover {
+    background: var(--gv-surface-2);
+  }
+
+  &[aria-expanded="true"],
+  &[data-state="selected"] {
+    background: var(--gv-surface-2);
+  }
+}
+
+.table__head {
+  height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--gv-text-xs);
+  font-weight: 600;
+  text-align: left;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gv-text-subtle);
+  white-space: nowrap;
+}
+
+.table__cell {
+  padding: 0.625rem 0.75rem;
+  vertical-align: middle;
+  color: var(--gv-text);
+}
+
+.table__cell--numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table__cell--muted {
+  color: var(--gv-text-muted);
+}
+
+.table__caption {
+  margin-top: 0.75rem;
+  font-size: var(--gv-text-xs);
+  color: var(--gv-text-subtle);
+  caption-side: bottom;
+}
