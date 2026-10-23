@@ -1,6 +1,7 @@
 import { GameParts, GameStatus } from "@/generated/prisma/enums"
 import type { Game } from "@/generated/prisma/client"
 import type { GenreOption } from "@/lib/genres"
+import { DEFAULT_KIND, type CollectionKindKey } from "@/lib/kinds"
 
 /**
  * Fila de la tabla `Genre` con la que se pinta un juego: los dos nombres para
@@ -13,8 +14,11 @@ export type GenreRef = GenreOption
 export type GameSummary = {
   id: string
   title: string
-  platformId: string
-  platform: string
+  /** Tipo de artículo: juego, accesorio, figura, libro o cómic. */
+  kind: CollectionKindKey
+  platformId: string | null
+  /** Plataforma (`null` en libros/cómics y en cualquier artículo sin asignar). */
+  platform: string | null
   /**
    * Géneros del juego, ya ordenados como el selector (`sortOrder` y luego
    * `nameEs`). Un juego puede tener varios o ninguno.
@@ -22,6 +26,10 @@ export type GameSummary = {
   genres: GenreRef[]
   developer: string | null
   publisher: string | null
+  /** Serie, línea o colección a la que pertenece el artículo. */
+  series: string | null
+  /** Número dentro de esa serie (tomo, volumen o entrega). */
+  volume: number | null
   /** Valoración personal de 1 a 5; `null` = sin valorar. */
   rating: number | null
   status: keyof typeof GameStatus
@@ -47,7 +55,7 @@ type GameGenreRow = {
 
 type GameWithImages = Game & {
   images: Array<{ url: string }>
-  platform: { name: string }
+  platform: { name: string } | null
   genres: GameGenreRow[]
 }
 
@@ -81,8 +89,11 @@ export function toGameSummary(game: GameWithImages): GameSummary {
   return {
     id: game.id,
     title: game.title,
-    platformId: game.platformId,
-    platform: game.platform.name,
+    // `?? DEFAULT_KIND` cubre payloads/consultas generados antes de que existiera
+    // la columna: nunca se pinta un tipo indefinido.
+    kind: (game.kind ?? DEFAULT_KIND) as CollectionKindKey,
+    platformId: game.platformId ?? null,
+    platform: game.platform?.name ?? null,
     // El orden se resuelve en JS y no con un `orderBy` anidado sobre la relación:
     // así la lista sale igual aunque quien consulta no ordene (la API y el
     // admin), y el selector y las etiquetas de la ficha nunca discrepan. El
@@ -91,6 +102,8 @@ export function toGameSummary(game: GameWithImages): GameSummary {
     genres: sortGenres(game.genres.map((row) => row.genre)),
     developer: game.developer,
     publisher: game.publisher,
+    series: game.series ?? null,
+    volume: game.volume ?? null,
     rating: game.rating,
     status: game.status,
     condition: game.condition,

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { prisma, GameStatus } from "@/lib/db"
+import { prisma, CollectionKind, GameStatus } from "@/lib/db"
 import { getPlanLimit } from "@/lib/plans"
 import { fetchRawgGameCredits } from "@/lib/rawg"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 import { genreIdFromLabel, readGenreIds } from "@/lib/genre-input"
 import { flatGenres } from "@/lib/game-summary"
+import { isCollectionKind, kindRequiresPlatform } from "@/lib/kinds"
+import { isValidImageUrl } from "@/lib/image-url"
 
 export const dynamic = "force-dynamic"
 
@@ -18,10 +20,10 @@ async function requireUser() {
 const MAX_CREDIT_LENGTH = 160
 
 /**
- * Normaliza un crédito (developer / publisher) que viene del cuerpo: cadena
+ * Normaliza un texto corto del cuerpo (developer, publisher o series): cadena
  * recortada y con límite de longitud, o `null` si no viene nada.
  */
-function readCredit(value: unknown): string | null {
+function readShortText(value: unknown): string | null {
   if (typeof value !== "string") return null
   return value.trim().slice(0, MAX_CREDIT_LENGTH) || null
 }
@@ -29,6 +31,7 @@ function readCredit(value: unknown): string | null {
 const createSelect = {
   id: true,
   title: true,
+  kind: true,
   platformId: true,
   platform: { select: { name: true } },
   genres: {
@@ -38,6 +41,8 @@ const createSelect = {
   },
   developer: true,
   publisher: true,
+  series: true,
+  volume: true,
   rating: true,
   status: true,
   condition: true,
@@ -100,11 +105,14 @@ export async function POST(request: Request) {
   let body: {
     rawgId?: unknown
     title?: unknown
+    kind?: unknown
     platformId?: unknown
     genreIds?: unknown
     genre?: unknown
     developer?: unknown
     publisher?: unknown
+    series?: unknown
+    volume?: unknown
     rating?: unknown
     status?: unknown
     coverImageUrl?: unknown
@@ -117,18 +125,37 @@ export async function POST(request: Request) {
   }
 
   const title = String(body.title ?? "").trim().slice(0, 200)
-  const platformId = String(body.platformId ?? "").trim().slice(0, 100)
 
-  if (!title || !platformId) {
-    return NextResponse.json({ error: "missing_fields" }, { status: 400 })
+  // El tipo es una allowlist del enum; sin `typeof` un array de un elemento
+  // colaría (`String(["BOOK"]) === "BOOK"`). Sin tipo se asume juego, que es lo
+  // que era todo antes de esta feature.
+  let kind: CollectionKind = CollectionKind.GAME
+  if (body.kind !== undefined && body.kind !== null && body.kind !== "") {
+    if (!isCollectionKind(body.kind)) {
+      return NextResponse.json({ error: "invalid_kind" }, { status: 400 })
+    }
+    kind = body.kind
   }
 
-  const platform = await prisma.platform.findUnique({
-    where: { id: platformId },
-    select: { id: true },
-  })
-  if (!platform) {
+  // La plataforma es obligatoria solo en juegos. En el resto es opcional y, si
+  // llega, tiene que existir en el catálogo del admin.
+  const platformId = String(body.platformId ?? "").trim().slice(0, 100)
+
+  if (!title) {
+    return NextResponse.json({ error: "missing_fields" }, { status: 400 })
+  }
+  if (kindRequiresPlatform(kind) && !platformId) {
     return NextResponse.json({ error: "invalid_platform" }, { status: 400 })
+  }
+
+  if (platformId) {
+    const platform = await prisma.platform.findUnique({
+      where: { id: platformId },
+      select: { id: true },
+    })
+    if (!platform) {
+      return NextResponse.json({ error: "invalid_platform" }, { status: 400 })
+    }
   }
 
   // El límite se evalúa contra el plan actual en BD (autoritativo), no
@@ -149,18 +176,46 @@ export async function POST(request: Request) {
     }
   }
 
+  // RAWG solo describe videojuegos: en el resto de tipos se ignora el id del
+  // catálogo (y con él la precarga de créditos y el tiempo jugado).
   const rawgId =
-    typeof body.rawgId === "string" || typeof body.rawgId === "number"
+    kind === CollectionKind.GAME &&
+    (typeof body.rawgId === "string" || typeof body.rawgId === "number")
       ? String(body.rawgId).slice(0, 40)
       : undefined
 
   const playtimeMin =
-    typeof body.playtimeMin === "number" && body.playtimeMin >= 0
+    kind === CollectionKind.GAME &&
+    typeof body.playtimeMin === "number" &&
+    body.playtimeMin >= 0
       ? Math.floor(body.playtimeMin)
       : undefined
 
-  const developer = readCredit(body.developer)
-  const publisher = readCredit(body.publisher)
+  const coverImageUrl =
+    typeof body.coverImageUrl === "string"
+      ? body.coverImageUrl.trim().slice(0, 1000)
+      : ""
+  if (coverImageUrl !== "" && !isValidImageUrl(coverImageUrl)) {
+    return NextResponse.json({ error: "invalid_image_url" }, { status: 400 })
+  }
+
+  const developer = readShortText(body.developer)
+  const publisher = readShortText(body.publisher)
+  // Serie/línea y tomo. Son opcionales en todos los tipos, así que un valor
+  // ausente o vacío se guarda como `null`; lo que llegue se valida aquí y no se
+  // confía en el recorte del cliente.
+  const series = readShortText(body.series)
+  let volume: number | null = null
+  if (body.volume !== undefined && body.volume !== null && body.volume !== "") {
+    if (typeof body.volume !== "number" && typeof body.volume !== "string") {
+      return NextResponse.json({ error: "invalid_volume" }, { status: 400 })
+    }
+    const parsed = Number(body.volume)
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 99999) {
+      return NextResponse.json({ error: "invalid_volume" }, { status: 400 })
+    }
+    volume = parsed
+  }
 
   // El género llega dos caminos: elegido del listado (`genreIds`, los que marcó
   // el usuario) o deduplicado del texto que trae RAWG. El cuerpo manda por
@@ -219,18 +274,18 @@ export async function POST(request: Request) {
       data: {
         userId: session.user.id,
         title,
-        platformId,
+        kind,
+        platformId: platformId || null,
         genres: {
           create: genreIds.map((genreId) => ({ genreId })),
         },
         developer: credits.developer,
         publisher: credits.publisher,
+        series,
+        volume,
         rating,
         ...(status ? { status } : {}),
-        coverImageUrl:
-          typeof body.coverImageUrl === "string"
-            ? body.coverImageUrl.slice(0, 1000)
-            : null,
+        coverImageUrl: coverImageUrl || null,
         rawgId,
         playtimeMin,
       },

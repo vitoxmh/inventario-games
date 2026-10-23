@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { lang } from "next/root-params"
 import { prisma } from "@/lib/db"
+import { auth } from "@/auth"
 import { AdminUsersClient } from "@/components/admin/admin-users-client"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
@@ -16,6 +17,7 @@ export default async function AdminUsersPage() {
   const dict = await getDictionary()
   const currentLocale = await lang()
   const locale = isLocale(currentLocale) ? currentLocale : "es"
+  const session = await auth()
 
   const [users, total, plans] = await Promise.all([
     prisma.user.findMany({
@@ -56,6 +58,7 @@ export default async function AdminUsersPage() {
         gameCount: user._count.games,
       }))}
       initialTotal={total}
+      currentUserId={session?.user?.id ?? ""}
       plans={plans.map((plan) => ({
         slug: plan.slug,
         label: (locale === "en" ? plan.nameEn : plan.nameEs) || plan.slug,

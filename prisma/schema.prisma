@@ -39,6 +39,23 @@ enum GameStatus {
   SELLING
 }
 
+// Qué es cada fila de la colección. El modelo sigue llamándose `Game` por
+// historia, pero un usuario puede guardar accesorios, figuras y libros (con
+// cómics y mangas dentro del mismo tipo) además de videojuegos. El tipo decide
+// qué campos tienen sentido (la plataforma solo es obligatoria en los juegos y
+// las piezas físicas/tiempo jugado solo se editan en ellos) y es lo que filtra
+// la colección y las estadísticas.
+//
+// `BOOK` agrupa libros, cómics y mangas a propósito: comparten los mismos datos
+// (autoría, editorial, serie y tomo) y separarlos obligaba a duplicar el enum y
+// los formularios sin aportar un dato distinto.
+enum CollectionKind {
+  GAME
+  ACCESSORY
+  FIGURE
+  BOOK
+}
+
 // Qué piezas físicas le FALTAN a la copia, de las tres que la constituyen: el
 // cartucho o disco, la caja y el manual. Es un enum y no texto libre (a
 // diferencia de `Game.condition`, que venía de un campo libre ya escrito) porque
@@ -278,15 +295,30 @@ model Payment {
 }
 
 model Game {
-  id            String     @id @default(cuid())
+  id            String         @id @default(cuid())
   userId        String
   title         String
-  platformId    String
+  // Tipo de artículo. Los registros anteriores son juegos (`@default(GAME)`),
+  // así que la migración no necesita backfill.
+  kind          CollectionKind @default(GAME)
+  // La plataforma solo tiene sentido en los juegos (y opcionalmente como
+  // "compatible con"/"línea" en accesorios y figuras). En libros y cómics se
+  // deja vacía, por eso la relación es opcional.
+  platformId    String?
   // Créditos del juego. Los rellena el usuario a mano y, cuando el juego se
   // añade desde el catálogo de RAWG, se precargan con el primer desarrollador y
   // el primer publisher que devuelve la API (ver `src/lib/rawg.ts`).
   developer     String?
   publisher     String?
+  // Serie, línea o colección a la que pertenece el artículo (la línea de una
+  // figura, la colección de un libro o manga). Es opcional y texto libre: el
+  // catálogo de series no lo edita el admin como `Platform`/`Genre`, cambia
+  // demasiado y no se filtra por él.
+  series        String?
+  // Número dentro de esa serie: el tomo de un manga, el volumen de un cómic o
+  // la entrega de una colección. Entero y opcional; el rango se valida en la
+  // API (`src/app/api/games/*`), no aquí.
+  volume        Int?
   // Valoración personal del 1 al 5 (0 estrellas = sin valorar). Es un entero
   // pequeño y no un decimal porque la interfaz solo ofrece cinco niveles; el
   // rango se valida en la API, no aquí, para no poder escribir un 6 en la BD.
@@ -309,13 +341,14 @@ model Game {
   updatedAt     DateTime     @updatedAt
 
   user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform Platform    @relation(fields: [platformId], references: [id], onDelete: Restrict)
+  platform Platform?   @relation(fields: [platformId], references: [id], onDelete: Restrict)
   genres   GameGenre[]
   images   GameImage[]
 
   @@index([userId])
   @@index([platformId])
   @@index([status])
+  @@index([kind])
 }
 
 // Géneros de un juego: la relación es de many a many, porque un juego puede

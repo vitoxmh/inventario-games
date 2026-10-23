@@ -17,7 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { GameStatus } from "@/generated/prisma/enums"
+import { CollectionKind, GameStatus } from "@/generated/prisma/enums"
+import {
+  COLLECTION_KINDS,
+  isCollectionKind,
+  kindRequiresPlatform,
+  kindSupportsDeveloper,
+  kindSupportsGenre,
+  kindSupportsParts,
+  kindSupportsPlatform,
+  kindSupportsPlaytime,
+  kindSupportsSeries,
+  kindSupportsVolume,
+  type CollectionKindKey,
+} from "@/lib/kinds"
+import { isValidImageUrl } from "@/lib/image-url"
 import type { PlatformOption } from "@/lib/platforms"
 import { genreName, type GenreOption } from "@/lib/genres"
 import {
@@ -46,10 +60,15 @@ type StatusKey = keyof typeof GameStatus
 // El estado físico es un desplegable con la escalera cerrada, no un texto: no
 // tiene error de validación porque siempre hay una opción marcada.
 type FieldErrors = Partial<
-  Record<"title" | "platformId" | "status" | "hours" | "price", string>
+  Record<"title" | "platformId" | "status" | "hours" | "price" | "volume", string>
 >
 
 const STATUS_KEYS = Object.keys(GameStatus) as StatusKey[]
+
+// Base UI no acepta `""` como valor de un `SelectItem` (lo trata como "sin
+// selección"), así que la opción de vaciar la plataforma usa un centinela que
+// nunca puede ser el id de una fila.
+const NO_PLATFORM = "__none__"
 
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -82,7 +101,8 @@ export function EditGameForm({
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [title, setTitle] = useState(game.title)
-  const [platformId, setPlatformId] = useState(game.platformId)
+  const [kind, setKind] = useState<CollectionKindKey>(game.kind)
+  const [platformId, setPlatformId] = useState(game.platformId ?? "")
   // Los géneros del juego. Es una lista porque un juego puede encajar en varios a
   // la vez; el desplegable permite marcar y desmarcar, y los chips de abajo son
   // los que se pueden quitar uno a uno. Vacío = sin género (dato opcional).
@@ -91,6 +111,10 @@ export function EditGameForm({
   )
   const [developer, setDeveloper] = useState(game.developer ?? "")
   const [publisher, setPublisher] = useState(game.publisher ?? "")
+  const [series, setSeries] = useState(game.series ?? "")
+  const [volume, setVolume] = useState(
+    game.volume != null ? String(game.volume) : "",
+  )
   const [rating, setRating] = useState<number | null>(game.rating)
   const [status, setStatus] = useState<StatusKey>(game.status)
   const [condition, setCondition] = useState<ConditionKey>(
@@ -124,6 +148,17 @@ export function EditGameForm({
   })
 
   const isPhysical = isPhysicalStatus(status)
+  const needsPlatform = kindRequiresPlatform(kind)
+  const hasPlaytime = kindSupportsPlaytime(kind)
+  const hasParts = kindSupportsParts(kind)
+  const hasSeries = kindSupportsSeries(kind)
+  const hasVolume = kindSupportsVolume(kind)
+  const hasGenre = kindSupportsGenre(kind)
+  const hasDeveloper = kindSupportsDeveloper(kind)
+  // La plataforma se exige en los juegos y se ofrece opcional en el resto salvo
+  // en las figuras, que no pertenecen a ninguna.
+  const hasPlatform = needsPlatform || kindSupportsPlatform(kind)
+  const fields = dict.kindFields[kind]
 
   const detailHref = `/${lang}/app/games/${game.id}`
 
@@ -156,41 +191,42 @@ export function EditGameForm({
     })
   }
 
-  function isValidImageUrl(value: string) {
-    if (value.startsWith("/uploads/")) return true
-    try {
-      const parsed = new URL(value)
-      return parsed.protocol === "http:" || parsed.protocol === "https:"
-    } catch {
-      return false
-    }
-  }
-
   function save() {
     const nextErrors: FieldErrors = {}
 
     const cleanTitle = title.trim().slice(0, 200)
     if (!cleanTitle) nextErrors.title = dict.errorTitleRequired
 
-    if (!platformId) nextErrors.platformId = dict.errorPlatformRequired
+    if (needsPlatform && !platformId) {
+      nextErrors.platformId = dict.errorPlatformRequired
+    }
 
+    // El tiempo jugado solo tiene sentido en videojuegos: en el resto el campo
+    // no se muestra y se guarda como `null` para no arrastrar horas de antes de
+    // cambiar el tipo.
     let playtimeMin: number | null = null
-    const trimmedHours = hours.trim()
-    if (trimmedHours === "") {
-      nextErrors.hours = dict.errorHoursRequired
-    } else {
-      const parsed = Number(trimmedHours)
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        nextErrors.hours = dict.errorHoursInvalid
+    if (hasPlaytime) {
+      const trimmedHours = hours.trim()
+      if (trimmedHours === "") {
+        nextErrors.hours = dict.errorHoursRequired
       } else {
-        playtimeMin = Math.round(parsed * 60)
+        const parsed = Number(trimmedHours)
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          nextErrors.hours = dict.errorHoursInvalid
+        } else {
+          playtimeMin = Math.round(parsed * 60)
+        }
       }
     }
 
+    // El precio es obligatorio en juegos (comportamiento de siempre) y opcional
+    // en accesorios, figuras, libros y cómics, donde muchas veces no se recuerda.
     let parsedPrice: number | null = null
     const trimmedPrice = price.trim()
     if (trimmedPrice === "") {
-      nextErrors.price = dict.errorPriceRequired
+      if (kind === CollectionKind.GAME) {
+        nextErrors.price = dict.errorPriceRequired
+      }
     } else {
       const parsed = Number(trimmedPrice)
       if (!Number.isFinite(parsed) || parsed < 0) {
@@ -200,15 +236,20 @@ export function EditGameForm({
       }
     }
 
-    setErrors(nextErrors)
-    if (
-      nextErrors.title ||
-      nextErrors.platformId ||
-      nextErrors.hours ||
-      nextErrors.price
-    ) {
-      return
+    // El tomo solo existe en libros (cómics y mangas incluidos); en el resto se
+    // manda como null para no arrastrar valores de antes de cambiar el tipo.
+    let parsedVolume: number | null = null
+    if (hasVolume && volume.trim() !== "") {
+      const parsed = Number(volume.trim())
+      if (!Number.isInteger(parsed) || parsed < 0) {
+        nextErrors.volume = dict.errorVolumeInvalid
+      } else {
+        parsedVolume = parsed
+      }
     }
+
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
 
     const cleanImages = canCustomCover
       ? images.map((item) => item.trim()).filter((item) => item !== "")
@@ -228,11 +269,18 @@ export function EditGameForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: cleanTitle,
-          platformId,
+          kind,
+          // Los campos que el tipo no usa se mandan vacíos para no arrastrar
+          // datos de antes de cambiar el tipo (p. ej. una figura que era juego).
+          platformId: hasPlatform ? platformId || null : null,
           // El conjunto se reemplaza entero: `[]` deja el juego sin género.
-          genreIds,
-          developer: developer.trim().slice(0, 160) || null,
+          genreIds: hasGenre ? genreIds : [],
+          developer: hasDeveloper
+            ? developer.trim().slice(0, 160) || null
+            : null,
           publisher: publisher.trim().slice(0, 160) || null,
+          series: hasSeries ? series.trim().slice(0, 160) || null : null,
+          volume: hasVolume ? parsedVolume : null,
           rating,
           status,
           playtimeMin,
@@ -245,7 +293,7 @@ export function EditGameForm({
           // formulario son las piezas que TIENE, así que se manda el complemento
           // (`missingParts`), que es lo que espera la BD, ya validado y en el
           // orden de lectura de `GAME_PARTS_VALUES`.
-          ...(isPhysical ? { parts: missingParts(parts) } : {}),
+          ...(isPhysical && hasParts ? { parts: missingParts(parts) } : {}),
           purchasePrice: parsedPrice,
           // La fecha de compra ya no se edita en el formulario, así que no se
           // manda: el PATCH solo toca los campos que llegan y el valor guardado
@@ -340,6 +388,43 @@ export function EditGameForm({
       <div className="game-form__box">
         <div className="game-form__grid">
           <div className="game-form__field">
+            <Label htmlFor={`edit-kind-${game.id}`}>{dict.kindLabel}</Label>
+            <Select
+              value={kind}
+              onValueChange={(value) => {
+                if (value != null && isCollectionKind(value)) {
+                  setKind(value)
+                  // Al volver a "juego" el selector ya no ofrece "sin
+                  // plataforma"; si estaba vacía se elige la primera para no
+                  // dejar el control mostrando un valor que no existe.
+                  if (kindRequiresPlatform(value) && !platformId) {
+                    setPlatformId(platforms[0]?.id ?? "")
+                  }
+                  setErrors((prev) => ({ ...prev, platformId: undefined }))
+                }
+              }}
+              itemToStringLabel={(value) =>
+                value != null
+                  ? dict.kinds[value as CollectionKindKey] ?? String(value)
+                  : ""
+              }
+            >
+              <SelectTrigger
+                id={`edit-kind-${game.id}`}
+                className="select__trigger--block"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {COLLECTION_KINDS.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {dict.kinds[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="game-form__field">
             <Label htmlFor={`edit-title-${game.id}`}>{dict.titleLabel}</Label>
             <Input
               id={`edit-title-${game.id}`}
@@ -357,16 +442,23 @@ export function EditGameForm({
               <p className="field-error">{errors.title}</p>
             )}
           </div>
+          {hasPlatform && (
           <div className="game-form__field">
-            <Label htmlFor={`edit-platform-${game.id}`}>{dict.platform}</Label>
+            <Label htmlFor={`edit-platform-${game.id}`}>{fields.platform}</Label>
             <Select
-              value={platformId}
+              value={platformId || NO_PLATFORM}
               onValueChange={(value) => {
-                if (value != null) setPlatformId(value)
-                if (value) setErrors((prev) => ({ ...prev, platformId: undefined }))
+                if (value != null) {
+                  setPlatformId(value === NO_PLATFORM ? "" : value)
+                  if (value !== NO_PLATFORM) {
+                    setErrors((prev) => ({ ...prev, platformId: undefined }))
+                  }
+                }
               }}
               itemToStringLabel={(value) =>
-                platforms.find((p) => p.id === value)?.name ?? ""
+                value === NO_PLATFORM
+                  ? dict.noPlatform
+                  : platforms.find((p) => p.id === value)?.name ?? ""
               }
             >
               <SelectTrigger
@@ -377,6 +469,9 @@ export function EditGameForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                {!needsPlatform && (
+                  <SelectItem value={NO_PLATFORM}>{dict.noPlatform}</SelectItem>
+                )}
                 {platforms.map((platform) => (
                   <SelectItem key={platform.id} value={platform.id}>
                     {platform.name}
@@ -388,6 +483,8 @@ export function EditGameForm({
               <p className="field-error">{errors.platformId}</p>
             )}
           </div>
+          )}
+          {hasGenre && (
           <div className="game-form__field">
             <Label htmlFor={`edit-genre-${game.id}`}>{dict.genre}</Label>
             <Select
@@ -420,8 +517,10 @@ export function EditGameForm({
               onRemove={removeGenre}
             />
           </div>
+          )}
+          {hasDeveloper && (
           <div className="game-form__field">
-            <Label htmlFor={`edit-developer-${game.id}`}>{dict.developer}</Label>
+            <Label htmlFor={`edit-developer-${game.id}`}>{fields.developer}</Label>
             <Input
               id={`edit-developer-${game.id}`}
               value={developer}
@@ -429,12 +528,13 @@ export function EditGameForm({
                 setDeveloper(event.target.value.slice(0, 160))
               }
               maxLength={160}
-              placeholder={dict.developerPlaceholder}
+              placeholder={fields.developer}
               autoComplete="off"
             />
           </div>
+          )}
           <div className="game-form__field">
-            <Label htmlFor={`edit-publisher-${game.id}`}>{dict.publisher}</Label>
+            <Label htmlFor={`edit-publisher-${game.id}`}>{fields.publisher}</Label>
             <Input
               id={`edit-publisher-${game.id}`}
               value={publisher}
@@ -442,10 +542,49 @@ export function EditGameForm({
                 setPublisher(event.target.value.slice(0, 160))
               }
               maxLength={160}
-              placeholder={dict.publisherPlaceholder}
+              placeholder={fields.publisher}
               autoComplete="off"
             />
           </div>
+          {hasSeries && (
+            <div className="game-form__field">
+              <Label htmlFor={`edit-series-${game.id}`}>{dict.series}</Label>
+              <Input
+                id={`edit-series-${game.id}`}
+                value={series}
+                onChange={(event) =>
+                  setSeries(event.target.value.slice(0, 160))
+                }
+                maxLength={160}
+                placeholder={dict.seriesPlaceholder}
+                autoComplete="off"
+              />
+            </div>
+          )}
+          {hasVolume && (
+              <div className="game-form__field">
+                <Label htmlFor={`edit-volume-${game.id}`}>{dict.volume}</Label>
+                <Input
+                  id={`edit-volume-${game.id}`}
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={volume}
+                  onChange={(event) => {
+                    setVolume(event.target.value.slice(0, 5))
+                    if (errors.volume) {
+                      setErrors((prev) => ({ ...prev, volume: undefined }))
+                    }
+                  }}
+                  placeholder={dict.volumePlaceholder}
+                  aria-invalid={errors.volume ? true : undefined}
+                />
+                {errors.volume && (
+                  <p className="field-error">{errors.volume}</p>
+                )}
+              </div>
+          )}
           <div className="game-form__field">
             <Label htmlFor={`edit-status-${game.id}`}>{dict.statusLabel}</Label>
             <Select
@@ -496,7 +635,7 @@ export function EditGameForm({
               le falten, y un juego deseado todavía no está en la estantería. La
               condición física no se filtra con esto porque es un dato de todas las
               copias. */}
-          {isPhysical && (
+          {isPhysical && hasParts && (
             <div className="game-form__field">
               {/* Sin `htmlFor`: el grupo de casillas no es un control etiquetable
                   (son tres), y cada baldosa lleva su propia etiqueta. */}
@@ -525,26 +664,28 @@ export function EditGameForm({
             />
             <p className="field-hint">{dict.ratingHint}</p>
           </div>
-          <div className="game-form__field">
-            <Label htmlFor={`edit-hours-${game.id}`}>{dict.playtimeLabel}</Label>
-            <Input
-              id={`edit-hours-${game.id}`}
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.1"
-              value={hours}
-              onChange={(event) => {
-                setHours(event.target.value.slice(0, 7))
-                if (errors.hours) setErrors((prev) => ({ ...prev, hours: undefined }))
-              }}
-              placeholder={dict.hoursPlaceholder}
-              aria-invalid={errors.hours ? true : undefined}
-            />
-            {errors.hours && (
-              <p className="field-error">{errors.hours}</p>
-            )}
-          </div>
+          {hasPlaytime && (
+            <div className="game-form__field">
+              <Label htmlFor={`edit-hours-${game.id}`}>{dict.playtimeLabel}</Label>
+              <Input
+                id={`edit-hours-${game.id}`}
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.1"
+                value={hours}
+                onChange={(event) => {
+                  setHours(event.target.value.slice(0, 7))
+                  if (errors.hours) setErrors((prev) => ({ ...prev, hours: undefined }))
+                }}
+                placeholder={dict.hoursPlaceholder}
+                aria-invalid={errors.hours ? true : undefined}
+              />
+              {errors.hours && (
+                <p className="field-error">{errors.hours}</p>
+              )}
+            </div>
+          )}
           <div className="game-form__field">
             <Label htmlFor={`edit-price-${game.id}`}>{dict.purchasePrice}</Label>
             <Input

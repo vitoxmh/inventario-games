@@ -1,23 +1,15 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { prisma, GameParts, GameStatus } from "@/lib/db"
+import { prisma, CollectionKind, GameParts, GameStatus } from "@/lib/db"
 import { getImageLimit } from "@/lib/plans"
 import { readGenreIds } from "@/lib/genre-input"
 import { isConditionKey } from "@/lib/conditions"
 import { readParts } from "@/lib/game-parts"
 import { flatGenres } from "@/lib/game-summary"
+import { isCollectionKind, kindRequiresPlatform } from "@/lib/kinds"
+import { isValidImageUrl } from "@/lib/image-url"
 
 export const dynamic = "force-dynamic"
-
-function isValidImageUrl(value: string): boolean {
-  if (value.startsWith("/uploads/")) return true
-  try {
-    const parsed = new URL(value)
-    return parsed.protocol === "http:" || parsed.protocol === "https:"
-  } catch {
-    return false
-  }
-}
 
 export async function PATCH(
   request: Request,
@@ -32,10 +24,13 @@ export async function PATCH(
 
   let body: {
     title?: unknown
+    kind?: unknown
     platformId?: unknown
     genreIds?: unknown
     developer?: unknown
     publisher?: unknown
+    series?: unknown
+    volume?: unknown
     rating?: unknown
     status?: unknown
     playtimeMin?: unknown
@@ -59,9 +54,12 @@ export async function PATCH(
   // variante sin comprobar relaciones, que es la que acepta `platformId`.
   const data: {
     title?: string
-    platformId?: string
+    kind?: CollectionKind
+    platformId?: string | null
     developer?: string | null
     publisher?: string | null
+    series?: string | null
+    volume?: number | null
     rating?: number | null
     status?: GameStatus
     playtimeMin?: number | null
@@ -81,19 +79,60 @@ export async function PATCH(
     data.title = title
   }
 
+  // El tipo también es una allowlist del enum. Va antes que la plataforma
+  // porque es lo que decide si la plataforma es obligatoria o se puede vaciar.
+  let nextKind: CollectionKind | undefined
+  if (body.kind !== undefined) {
+    if (!isCollectionKind(body.kind)) {
+      return NextResponse.json({ error: "invalid_kind" }, { status: 400 })
+    }
+    nextKind = body.kind
+    data.kind = nextKind
+  }
+
   if (body.platformId !== undefined) {
     const platformId = String(body.platformId ?? "").trim().slice(0, 100)
     if (!platformId) {
-      return NextResponse.json({ error: "invalid_platform" }, { status: 400 })
+      // Vaciar la plataforma solo vale fuera de los juegos. Si el PATCH no trae
+      // `kind`, se mira el actual para no exigir al cliente un dato que no
+      // quiere cambiar.
+      const current =
+        nextKind !== undefined
+          ? { kind: nextKind }
+          : await prisma.game.findFirst({
+              where: { id, userId: session.user.id },
+              select: { kind: true },
+            })
+      if (!current) {
+        return NextResponse.json({ error: "not_found" }, { status: 404 })
+      }
+      if (kindRequiresPlatform(current.kind)) {
+        return NextResponse.json({ error: "invalid_platform" }, { status: 400 })
+      }
+      data.platformId = null
+    } else {
+      const platform = await prisma.platform.findUnique({
+        where: { id: platformId },
+        select: { id: true },
+      })
+      if (!platform) {
+        return NextResponse.json({ error: "invalid_platform" }, { status: 400 })
+      }
+      data.platformId = platformId
     }
-    const platform = await prisma.platform.findUnique({
-      where: { id: platformId },
-      select: { id: true },
+  } else if (nextKind !== undefined && kindRequiresPlatform(nextKind)) {
+    // Cambiar a "juego" sin mandar plataforma: la fila tiene que tener ya una
+    // válida, porque un juego sin plataforma no se puede pintar ni filtrar.
+    const current = await prisma.game.findFirst({
+      where: { id, userId: session.user.id },
+      select: { platformId: true },
     })
-    if (!platform) {
+    if (!current) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 })
+    }
+    if (!current.platformId) {
       return NextResponse.json({ error: "invalid_platform" }, { status: 400 })
     }
-    data.platformId = platformId
   }
 
   // Los géneros no entran en `data`: en `updateMany` la variante "checked" del
@@ -115,6 +154,29 @@ export async function PATCH(
 
   if (body.publisher !== undefined) {
     data.publisher = String(body.publisher ?? "").trim().slice(0, 160) || null
+  }
+
+  if (body.series !== undefined) {
+    data.series = String(body.series ?? "").trim().slice(0, 160) || null
+  }
+
+  // El tomo es un entero opcional. `null`/"" lo vacían; un array u objeto no
+  // pasa por número aunque `Number([])` sea 0, de ahí el `typeof` estricto.
+  if (body.volume === undefined) {
+    // No se toca.
+  } else if (body.volume === null || body.volume === "") {
+    data.volume = null
+  } else if (
+    typeof body.volume !== "number" &&
+    typeof body.volume !== "string"
+  ) {
+    return NextResponse.json({ error: "invalid_volume" }, { status: 400 })
+  } else {
+    const volume = Number(body.volume)
+    if (!Number.isInteger(volume) || volume < 0 || volume > 99999) {
+      return NextResponse.json({ error: "invalid_volume" }, { status: 400 })
+    }
+    data.volume = volume
   }
 
   if (body.rating !== undefined && body.rating !== null && body.rating !== "") {

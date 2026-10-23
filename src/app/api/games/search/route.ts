@@ -38,8 +38,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ results: [] })
   }
 
-  // `contains` con `mode: "insensitive"` cubre título, plataforma, género y
-  // créditos, que es el mismo criterio que aplica el filtro de la colección, y
+  // `contains` con `mode: "insensitive"` cubre título, plataforma, género,
+  // créditos y serie, que es el mismo criterio que aplica el filtro de la
+  // colección, y
   // así el buscador encuentra "Fire Emblem" tanto por el título como por la
   // desarrolladora sin pedirle al usuario que separe campos.
   //
@@ -65,7 +66,12 @@ export async function GET(request: Request) {
         },
         { developer: { contains: q, mode: "insensitive" } },
         { publisher: { contains: q, mode: "insensitive" } },
-        { platform: { name: { contains: q, mode: "insensitive" } } },
+        { series: { contains: q, mode: "insensitive" } },
+        {
+          platform: {
+            is: { name: { contains: q, mode: "insensitive" } },
+          },
+        },
       ],
     },
     orderBy: { title: "asc" },
@@ -73,6 +79,7 @@ export async function GET(request: Request) {
     select: {
       id: true,
       title: true,
+      kind: true,
       coverImageUrl: true,
       status: true,
       rating: true,
@@ -84,6 +91,7 @@ export async function GET(request: Request) {
   const results = games.map((game) => ({
     id: game.id,
     title: game.title,
+    kind: game.kind,
     coverImageUrl: game.images[0]?.url ?? game.coverImageUrl,
     status: game.status,
     rating: game.rating,
