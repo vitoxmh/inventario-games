@@ -25,7 +25,18 @@ import {
 } from "@/components/ui/dialog"
 import { resolvePlatformId, type PlatformOption } from "@/lib/platforms"
 import { genreName, type GenreOption } from "@/lib/genres"
-import { GameStatus } from "@/generated/prisma/enums"
+import { CollectionKind, GameStatus } from "@/generated/prisma/enums"
+import {
+  COLLECTION_KINDS,
+  DEFAULT_KIND,
+  isCollectionKind,
+  kindRequiresPlatform,
+  kindSupportsDeveloper,
+  kindSupportsGenre,
+  kindSupportsSeries,
+  kindSupportsVolume,
+  type CollectionKindKey,
+} from "@/lib/kinds"
 import { GenreChips } from "@/components/inventory/genre-chips"
 import type { Locale } from "@/lib/i18n/locales"
 import type { Dictionary } from "@/messages/es"
@@ -69,6 +80,7 @@ export function AddGameDialog({
   const [notice, setNotice] = useState<string | null>(null)
   const [searching, startSearch] = useTransition()
   const [addingId, setAddingId] = useState<number | null>(null)
+  const [manualKind, setManualKind] = useState<CollectionKindKey>(DEFAULT_KIND)
   const [manualTitle, setManualTitle] = useState("")
   const [manualPlatformId, setManualPlatformId] = useState(
     platforms[0]?.id ?? "",
@@ -77,6 +89,8 @@ export function AddGameDialog({
   const [manualError, setManualError] = useState<string | null>(null)
   const [manualDeveloper, setManualDeveloper] = useState("")
   const [manualPublisher, setManualPublisher] = useState("")
+  const [manualSeries, setManualSeries] = useState("")
+  const [manualVolume, setManualVolume] = useState("")
   const [manualGenreIds, setManualGenreIds] = useState<string[]>([])
   // Una sola opción, igual que el estado del formulario de edición: el
   // desplegable es de elección única y arranca en el mismo valor que ponía el
@@ -91,6 +105,13 @@ export function AddGameDialog({
     const found = genres.find((genre) => genre.id === id)
     return found ? [found] : []
   })
+
+  const manualFields = dict.kindFields[manualKind]
+  const manualNeedsPlatform = kindRequiresPlatform(manualKind)
+  const manualSupportsSeries = kindSupportsSeries(manualKind)
+  const manualSupportsVolume = kindSupportsVolume(manualKind)
+  const manualHasGenre = kindSupportsGenre(manualKind)
+  const manualHasDeveloper = kindSupportsDeveloper(manualKind)
 
   function removeManualGenre(id: string) {
     setManualGenreIds((prev) => prev.filter((current) => current !== id))
@@ -130,6 +151,7 @@ export function AddGameDialog({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        kind: CollectionKind.GAME,
         rawgId: game.id,
         title: game.title,
         platformId: game.platformId,
@@ -158,12 +180,24 @@ export function AddGameDialog({
 
   async function handleManualAdd() {
     const title = manualTitle.trim().slice(0, 200)
-    const platformId = manualPlatformId
-    if (!title || !platformId) {
+    const platformId = manualNeedsPlatform ? manualPlatformId : ""
+    if (!title || (manualNeedsPlatform && !platformId)) {
       setManualError(
         !title ? dict.errorTitleRequired : dict.errorPlatformRequired,
       )
       return
+    }
+
+    // El tomo solo se envía en los libros; en el resto va como null para no
+    // arrastrar datos de un cambio de tipo.
+    let volume: number | null = null
+    if (manualSupportsVolume && manualVolume.trim() !== "") {
+      const parsed = Number(manualVolume.trim())
+      if (!Number.isInteger(parsed) || parsed < 0) {
+        setManualError(dict.errorVolumeInvalid)
+        return
+      }
+      volume = parsed
     }
     setManualError(null)
     setAddingManual(true)
@@ -171,11 +205,14 @@ export function AddGameDialog({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        kind: manualKind,
         title,
-        platformId,
-        genreIds: manualGenreIds,
-        developer: manualDeveloper.trim() || null,
+        ...(platformId ? { platformId } : {}),
+        genreIds: manualHasGenre ? manualGenreIds : [],
+        developer: manualHasDeveloper ? manualDeveloper.trim() || null : null,
         publisher: manualPublisher.trim() || null,
+        series: manualSupportsSeries ? manualSeries.trim() || null : null,
+        volume: manualSupportsVolume ? volume : null,
         status: manualStatus,
       }),
     })
@@ -194,9 +231,12 @@ export function AddGameDialog({
     setQuery("")
     setResults(null)
     setManualTitle("")
+    setManualKind(DEFAULT_KIND)
     setManualPlatformId(platforms[0]?.id ?? "")
     setManualDeveloper("")
     setManualPublisher("")
+    setManualSeries("")
+    setManualVolume("")
     setManualGenreIds([])
     setManualStatus(GameStatus.OWNED)
     toast.success(dict.addedToast)
@@ -218,6 +258,8 @@ export function AddGameDialog({
           <DialogDescription>{dict.modalDescription}</DialogDescription>
         </DialogHeader>
 
+        {manualKind === CollectionKind.GAME && (
+          <>
         <div className="game-picker__search">
           <Label htmlFor="game-search" className="u-sr-only">
             {dict.searchPlaceholder}
@@ -307,11 +349,47 @@ export function AddGameDialog({
             </div>
           ))}
         </div>
+          </>
+        )}
 
         <div className="game-picker__manual">
           <p className="game-picker__manual-title">{dict.manualAdd}</p>
           <div className="game-picker__manual-body">
             <div className="game-picker__manual-grid">
+              <Label htmlFor="manual-kind" className="u-sr-only">
+                {dict.kindLabel}
+              </Label>
+              <span className="u-flex u-gap-2">
+                <Select
+                  value={manualKind}
+                  onValueChange={(value) => {
+                    if (value != null && isCollectionKind(value)) {
+                      setManualKind(value)
+                      setManualError(null)
+                    }
+                  }}
+                  itemToStringLabel={(value) =>
+                    value != null
+                      ? dict.kinds[value as CollectionKindKey] ?? String(value)
+                      : ""
+                  }
+                >
+                  <SelectTrigger
+                    id="manual-kind"
+                    className="select__trigger--block"
+                    aria-label={dict.kindLabel}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLLECTION_KINDS.map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {dict.kinds[key]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </span>
               <Label htmlFor="manual-title" className="u-sr-only">
                 {dict.manualTitleLabel}
               </Label>
@@ -333,6 +411,8 @@ export function AddGameDialog({
                 aria-invalid={manualError === dict.errorTitleRequired ? true : undefined}
                 autoComplete="off"
               />
+              {manualNeedsPlatform && (
+                <>
               <Label htmlFor="manual-platform" className="u-sr-only">
                 {dict.manualPlatformLabel}
               </Label>
@@ -366,6 +446,8 @@ export function AddGameDialog({
                   </SelectContent>
                 </Select>
               </span>
+                </>
+              )}
               <Label htmlFor="manual-status" className="u-sr-only">
                 {dict.statusLabel}
               </Label>
@@ -397,6 +479,8 @@ export function AddGameDialog({
                   </SelectContent>
                 </Select>
               </span>
+              {manualHasGenre && (
+                <>
               <Label htmlFor="manual-genre" className="u-sr-only">
                 {dict.genre}
               </Label>
@@ -437,8 +521,12 @@ export function AddGameDialog({
                   onRemove={removeManualGenre}
                 />
               </div>
+                </>
+              )}
+              {manualHasDeveloper && (
+                <>
               <Label htmlFor="manual-developer" className="u-sr-only">
-                {dict.developer}
+                {manualFields.developer}
               </Label>
               <Input
                 id="manual-developer"
@@ -447,12 +535,14 @@ export function AddGameDialog({
                   setManualDeveloper(event.target.value.slice(0, 160))
                 }
                 maxLength={160}
-                placeholder={dict.developerPlaceholder}
-                aria-label={dict.developer}
+                placeholder={manualFields.developer}
+                aria-label={manualFields.developer}
                 autoComplete="off"
               />
+                </>
+              )}
               <Label htmlFor="manual-publisher" className="u-sr-only">
-                {dict.publisher}
+                {manualFields.publisher}
               </Label>
               <Input
                 id="manual-publisher"
@@ -461,10 +551,39 @@ export function AddGameDialog({
                   setManualPublisher(event.target.value.slice(0, 160))
                 }
                 maxLength={160}
-                placeholder={dict.publisherPlaceholder}
-                aria-label={dict.publisher}
+                placeholder={manualFields.publisher}
+                aria-label={manualFields.publisher}
                 autoComplete="off"
               />
+              {manualSupportsSeries && (
+                <Input
+                  id="manual-series"
+                  value={manualSeries}
+                  onChange={(event) =>
+                    setManualSeries(event.target.value.slice(0, 160))
+                  }
+                  maxLength={160}
+                  placeholder={dict.seriesPlaceholder}
+                  aria-label={dict.series}
+                  autoComplete="off"
+                />
+              )}
+              {manualSupportsVolume && (
+                <Input
+                  id="manual-volume"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={manualVolume}
+                  onChange={(event) =>
+                    setManualVolume(event.target.value.slice(0, 5))
+                  }
+                  placeholder={dict.volumePlaceholder}
+                  aria-label={dict.volume}
+                  autoComplete="off"
+                />
+              )}
             </div>
             {manualError && (
               <p className="field-error">{manualError}</p>

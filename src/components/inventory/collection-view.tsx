@@ -30,6 +30,16 @@ import { GameCardActions } from "@/components/inventory/game-card-actions"
 import { RatingStars } from "@/components/inventory/rating"
 import { ratingLabel } from "@/lib/rating"
 import { GameStatus } from "@/generated/prisma/enums"
+import {
+  COLLECTION_KINDS,
+  KIND_ICONS,
+  kindSupportsDeveloper,
+  kindSupportsGenre,
+  kindSupportsPlatform,
+  kindSupportsPlaytime,
+  kindSupportsVolume,
+  type CollectionKindKey,
+} from "@/lib/kinds"
 import { STATUS_ICONS, type StatusKey } from "@/lib/status-meta"
 import { genreName, genreNames, type GenreOption } from "@/lib/genres"
 import { conditionLabel } from "@/lib/conditions"
@@ -124,10 +134,13 @@ function downloadCsv(
 
   const header = [
     dict.titleLabel,
+    dict.kindLabel,
     dict.platform,
     dict.genre,
     dict.csvDeveloper,
     dict.csvPublisher,
+    dict.series,
+    dict.volume,
     dict.csvRating,
     dict.statusLabel,
     dict.condition,
@@ -140,18 +153,25 @@ function downloadCsv(
   const rows = games.map((game) =>
     [
       game.title,
-game.platform,
-      genreLabelsOf(game, lang),
-      game.developer,
+      dict.kinds[game.kind],
+      kindSupportsPlatform(game.kind) ? game.platform : null,
+      kindSupportsGenre(game.kind) ? genreLabelsOf(game, lang) : "",
+      kindSupportsDeveloper(game.kind) ? game.developer : null,
       game.publisher,
+      game.series,
+      kindSupportsVolume(game.kind) ? game.volume : null,
       game.rating,
       dict.statuses[game.status],
       conditionLabel(game.condition, dict.conditions),
       // En el CSV, la columna solo dice algo en las copias físicas: una copia
       // digital no tiene caja ni manual que comprobar, así que se deja vacía en
       // vez de pintar "no tiene ninguna".
-      isPhysicalStatus(game.status) ? presentLabel(game.parts, dict.parts) : "",
-      game.playtimeMin == null ? null : Math.round(game.playtimeMin / 60),
+      isPhysicalStatus(game.status) && game.kind === "GAME"
+        ? presentLabel(game.parts, dict.parts)
+        : "",
+      kindSupportsPlaytime(game.kind) && game.playtimeMin != null
+        ? Math.round(game.playtimeMin / 60)
+        : null,
       game.purchasePrice,
       game.purchaseDate,
       game.images.length,
@@ -206,6 +226,7 @@ export function CollectionView({
 }) {
   const [query, setQuery] = useState("")
   const [status, setStatus] = useState<string>("all")
+  const [kind, setKind] = useState<string>("all")
   const [platform, setPlatform] = useState<string>("all")
   const [genre, setGenre] = useState<string>("all")
   const [sort, setSort] = useState<SortKey>("newest")
@@ -216,9 +237,11 @@ export function CollectionView({
 
   const platformNames = useMemo(
     () =>
-      [...new Set(games.map((g) => g.platform))].sort((a, b) =>
-        a.localeCompare(b, undefined, { sensitivity: "base" }),
-      ),
+      [
+        ...new Set(
+          games.flatMap((game) => (game.platform ? [game.platform] : [])),
+        ),
+      ].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
     [games],
   )
 // El desplegable ofrece el listado entero, no solo los géneros que hay en
@@ -229,10 +252,11 @@ export function CollectionView({
     const list = games.filter((game) => {
       if (q) {
         const haystack =
-          `${game.title} ${game.platform} ${genreLabelsOf(game, lang)} ${game.developer ?? ""} ${game.publisher ?? ""}`.toLowerCase()
+          `${game.title} ${game.platform} ${genreLabelsOf(game, lang)} ${game.developer ?? ""} ${game.publisher ?? ""} ${game.series ?? ""} ${game.volume ?? ""}`.toLowerCase()
         if (!haystack.includes(q)) return false
       }
       if (status !== "all" && game.status !== status) return false
+      if (kind !== "all" && game.kind !== kind) return false
       if (platform !== "all" && game.platform !== platform) return false
       // Con varios géneros por juego, el filtro es "incluye este": basta con que
       // uno de los del juego sea el elegido.
@@ -242,11 +266,12 @@ export function CollectionView({
       return true
     })
     return sortGames(list, sort)
-  }, [games, query, status, platform, genre, sort, lang])
+  }, [games, query, status, kind, platform, genre, sort, lang])
 
   const hasFilters =
     query.trim() !== "" ||
     status !== "all" ||
+    kind !== "all" ||
     platform !== "all" ||
     genre !== "all" ||
     sort !== "newest"
@@ -274,6 +299,7 @@ export function CollectionView({
   function resetFilters() {
     setQuery("")
     setStatus("all")
+    setKind("all")
     setPlatform("all")
     setGenre("all")
     setSort("newest")
@@ -366,6 +392,45 @@ export function CollectionView({
           </div>
 
           <div className="collection__selects">
+            <Select
+              value={kind}
+              onValueChange={(value) => {
+                if (value != null) {
+                  setKind(value)
+                  setPage(1)
+                }
+              }}
+              itemToStringLabel={(value) =>
+                value === "all"
+                  ? dict.all
+                  : value != null
+                    ? dict.kinds[value as CollectionKindKey] ?? String(value)
+                    : ""
+              }
+            >
+              <SelectTrigger className="collection__select" aria-label={dict.filterKind}>
+                <span className="collection__select-body">
+                  <span className="collection__select-label">
+                    <ListFilter aria-hidden="true" />
+                    {dict.filterKind}
+                  </span>
+                  <SelectValue />
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{dict.all}</SelectItem>
+                {COLLECTION_KINDS.map((key) => {
+                  const KindIcon = KIND_ICONS[key]
+                  return (
+                    <SelectItem key={key} value={key}>
+                      <KindIcon aria-hidden="true" />
+                      {dict.kinds[key]}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+
             <Select
               value={status}
               onValueChange={(value) => {
@@ -752,17 +817,33 @@ function GameCard({
   list?: boolean
 }) {
   const StatusIcon = STATUS_ICONS[game.status]
+  const KindIcon = KIND_ICONS[game.kind]
   const cover = game.images[0] ?? game.coverImageUrl
   const isDigital = game.status === GameStatus.DIGITAL
-  const hours = game.playtimeMin == null ? null : Math.round(game.playtimeMin / 60)
-  const playtime =
-    hours == null || hours === 0
+  const hasPlaytime = kindSupportsPlaytime(game.kind)
+  const hours =
+    hasPlaytime && game.playtimeMin != null
+      ? Math.round(game.playtimeMin / 60)
+      : null
+  const playtime = !hasPlaytime
+    ? null
+    : hours == null || hours === 0
       ? dict.inLibrary
       : dict.playtimeRegistered.replace("{hours}", String(hours))
+  // En figuras y libros (cómics y mangas incluidos) la serie y el tomo son el
+  // dato que sitúa la pieza; en un juego se omite porque ya lo cuenta el título.
+  const series = !hasPlaytime && game.series
+    ? kindSupportsVolume(game.kind) && game.volume != null
+      ? `${game.series} #${game.volume}`
+      : game.series
+    : null
   const meta = [
-    game.developer,
-    genreNames(game.genres, lang).join(", ") ||
-      conditionLabel(game.condition, dict.conditions),
+    kindSupportsDeveloper(game.kind) ? game.developer : null,
+    series,
+    kindSupportsGenre(game.kind)
+      ? genreNames(game.genres, lang).join(", ") ||
+        conditionLabel(game.condition, dict.conditions)
+      : null,
     playtime,
   ]
     .filter(Boolean)
@@ -776,7 +857,7 @@ function GameCard({
           <img src={cover} alt={game.title} className="game-card__cover-image" />
         ) : (
           <div className="game-card__cover-placeholder">
-            <Gamepad2 aria-hidden="true" />
+            <KindIcon aria-hidden="true" />
           </div>
         )}
         <span className="game-card__scrim" aria-hidden="true" />
@@ -802,10 +883,12 @@ function GameCard({
       <div className="game-card__body">
         <div className="game-card__main">
           <div className="game-card__row">
-            <span className="game-card__platform">
-              <Gamepad2 aria-hidden="true" />
-              {game.platform}
-            </span>
+            {kindSupportsPlatform(game.kind) && game.platform && (
+              <span className="game-card__platform">
+                <Gamepad2 aria-hidden="true" />
+                {game.platform}
+              </span>
+            )}
             {hours != null && hours > 0 && (
               <span className="game-card__playtime">
                 <Clock aria-hidden="true" />

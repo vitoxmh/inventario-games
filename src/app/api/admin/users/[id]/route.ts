@@ -77,3 +77,29 @@ export async function PATCH(
     return NextResponse.json({ error: "not_found" }, { status: 404 })
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const guard = await requireAdmin()
+  if (!guard.authorized) {
+    return NextResponse.json(
+      { error: guard.status === 403 ? "forbidden" : "unauthorized" },
+      { status: guard.status },
+    )
+  }
+
+  const { id } = await context.params
+
+  if (id === guard.user.id) {
+    return NextResponse.json({ error: "cannot_delete_self" }, { status: 400 })
+  }
+
+  const result = await prisma.user.deleteMany({ where: { id } })
+  if (result.count === 0) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 })
+  }
+
+  return NextResponse.json({ ok: true })
+}

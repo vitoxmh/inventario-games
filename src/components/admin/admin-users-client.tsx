@@ -1,11 +1,22 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Ban, ChevronLeft, ChevronRight, Search, ShieldCheck, ShieldOff, UserCheck } from "lucide-react"
+import { Ban, ChevronLeft, ChevronRight, Search, ShieldCheck, ShieldOff, Trash2, UserCheck } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Table,
   TableBody,
@@ -54,11 +65,13 @@ export function AdminUsersClient({
   initialUsers,
   initialTotal,
   plans,
+  currentUserId,
   dict,
 }: {
   initialUsers: AdminUser[]
   initialTotal: number
   plans: PlanOption[]
+  currentUserId: string
   dict: AdminDict
 }) {
   const [q, setQ] = useState("")
@@ -69,6 +82,7 @@ export function AdminUsersClient({
     pages: 1,
   })
   const [isPending, startTransition] = useTransition()
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   function load(nextPage: number, query: string) {
     startTransition(async () => {
@@ -142,6 +156,25 @@ export function AdminUsersClient({
       }))
       toast.success(dict.saved)
     })
+  }
+
+  function remove(user: AdminUser) {
+    setDeleting(user.id)
+    void fetch(`/api/admin/users/${user.id}`, { method: "DELETE" }).then(
+      async (res) => {
+        setDeleting(null)
+        if (!res.ok) {
+          toast.error(dict.saveError)
+          return
+        }
+        toast.success(dict.saved)
+        setState((prev) => ({
+          ...prev,
+          users: prev.users.filter((u) => u.id !== user.id),
+          total: Math.max(0, prev.total - 1),
+        }))
+      },
+    )
   }
 
   return (
@@ -266,6 +299,40 @@ export function AdminUsersClient({
                         )}
                         {user.bannedAt ? dict.unban : dict.ban}
                       </Button>
+                      {user.id !== currentUserId && (
+                        <AlertDialog>
+                          <AlertDialogTrigger
+                            render={<Button variant="ghost" size="icon-sm" />}
+                          >
+                            <Trash2 className="u-danger" aria-hidden="true" />
+                            <span className="sr-only">{dict.removeUser}</span>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                {dict.removeUserTitle}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {dict.removeUserBody}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>
+                                {dict.banCancel}
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={(event) => {
+                                  event.preventDefault()
+                                  remove(user)
+                                }}
+                                disabled={deleting === user.id}
+                              >
+                                {dict.removeConfirm}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

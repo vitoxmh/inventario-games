@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { lang } from "next/root-params"
-import { Gamepad2, Pen } from "lucide-react"
+import { Pen } from "lucide-react"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +16,15 @@ import { RatingStars } from "@/components/inventory/rating"
 import { ratingLabel } from "@/lib/rating"
 import { genreNames } from "@/lib/genres"
 import { conditionLabel } from "@/lib/conditions"
+import {
+  KIND_ICONS,
+  kindSupportsDeveloper,
+  kindSupportsGenre,
+  kindSupportsParts,
+  kindSupportsPlatform,
+  kindSupportsPlaytime,
+  kindSupportsVolume,
+} from "@/lib/kinds"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { isLocale } from "@/lib/i18n/locales"
 
@@ -73,9 +82,19 @@ export default async function GameDetailPage({
       ? currencyFormatter.format(Number(game.purchasePrice))
       : null
   const playtime =
-    game.playtimeMin != null && game.playtimeMin > 0
+    kindSupportsPlaytime(game.kind) &&
+    game.playtimeMin != null &&
+    game.playtimeMin > 0
       ? `${Math.round(game.playtimeMin / 60)} ${inv.playtime}`
       : null
+
+  const fields = inv.kindFields[game.kind]
+  const KindIcon = KIND_ICONS[game.kind]
+  // Las figuras no usan plataforma, género ni desarrollador: no se pintan
+  // siquiera como fila vacía.
+  const showPlatform = kindSupportsPlatform(game.kind)
+  const showGenre = kindSupportsGenre(game.kind)
+  const showDeveloper = kindSupportsDeveloper(game.kind)
 
   const genreLabels = genreNames(
     game.genres.map((row) => row.genre),
@@ -84,15 +103,23 @@ export default async function GameDetailPage({
   const genreLabel = genreLabels.join(", ")
 
   const meta: Array<{ label: string; value: string }> = [
-    { label: inv.platform, value: game.platform?.name ?? "—" },
-    { label: inv.genre, value: genreLabel || "—" },
-    { label: inv.developer, value: game.developer ?? "—" },
-    { label: inv.publisher, value: game.publisher ?? "—" },
+    ...(showPlatform && game.platform
+      ? [{ label: fields.platform, value: game.platform.name }]
+      : []),
+    ...(showGenre ? [{ label: inv.genre, value: genreLabel || "—" }] : []),
+    ...(showDeveloper
+      ? [{ label: fields.developer, value: game.developer ?? "—" }]
+      : []),
+    { label: fields.publisher, value: game.publisher ?? "—" },
+    ...(game.series ? [{ label: inv.series, value: game.series }] : []),
+    ...(kindSupportsVolume(game.kind) && game.volume != null
+      ? [{ label: inv.volume, value: String(game.volume) }]
+      : []),
     {
       label: inv.condition,
       value: conditionLabel(game.condition, inv.conditions) ?? "—",
     },
-    { label: inv.playtimeLabel, value: playtime ?? "—" },
+    ...(playtime ? [{ label: inv.playtimeLabel, value: playtime }] : []),
     { label: inv.purchasePrice, value: price ?? "—" },
     {
       label: inv.purchaseDate,
@@ -113,7 +140,7 @@ export default async function GameDetailPage({
           {
             label: inv.collectionTitle,
             href: `/${locale}/app`,
-            icon: <Gamepad2 aria-hidden="true" />,
+            icon: <KindIcon aria-hidden="true" />,
           },
           { label: game.title },
         ]}
@@ -125,11 +152,18 @@ export default async function GameDetailPage({
             <h1 className="page-title page-title--lg">
               {game.title}
             </h1>
+            <Badge variant="outline">{inv.kinds[game.kind]}</Badge>
             <Badge variant="secondary">{inv.statuses[game.status]}</Badge>
           </div>
           <p className="page-lead page-lead--spaced">
-            {game.platform?.name}
-            {genreLabels.length > 0 && ` · ${genreLabels.join(" · ")}`}
+            {[
+              showPlatform ? game.platform?.name : null,
+              showGenre && genreLabels.length > 0
+                ? genreLabels.join(" · ")
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
           {/* La valoración va bajo el título, no en el grid de datos: es el dato
               que resume el juego de un vistazo, y enterrarlo entre condición y
@@ -170,18 +204,20 @@ export default async function GameDetailPage({
             />
           ) : (
             <div className="game-detail__cover game-detail__cover--empty">
-              <Gamepad2 aria-hidden="true" />
+              <KindIcon aria-hidden="true" />
             </div>
           )}
           {/* Qué tiene la copia, bajo la portada y no en el bloque de datos: es el
               detalle que se mira junto al juego, y en digital o en deseos el
               componente no pinta nada. */} 
-          <PartsBadges
-            parts={game.parts}
-            status={game.status}
-            labels={inv.parts}
-            title={inv.partsLabel}
-          />
+          {kindSupportsParts(game.kind) && (
+            <PartsBadges
+              parts={game.parts}
+              status={game.status}
+              labels={inv.parts}
+              title={inv.partsLabel}
+            />
+          )}
         </div>
 
         <div className="game-detail__main">

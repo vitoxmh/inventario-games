@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Command, Gamepad2, Search } from "lucide-react"
+import { Command, Search } from "lucide-react"
 import { RatingStars } from "@/components/inventory/rating"
 import { ratingLabel } from "@/lib/rating"
+import { KIND_ICONS, type CollectionKindKey } from "@/lib/kinds"
 import { cn } from "@/lib/utils"
 import type { Locale } from "@/lib/i18n/locales"
 
@@ -20,6 +21,7 @@ type SearchDict = {
 type GameHit = {
   id: string
   title: string
+  kind: CollectionKindKey
   coverImageUrl: string | null
   status: string
   rating: number | null
@@ -221,7 +223,9 @@ export function TopbarSearch({
             </p>
           ) : (
             <ul className="search-panel__list">
-              {results!.map((game, index) => (
+              {results!.map((game, index) => {
+                const KindIcon = KIND_ICONS[game.kind]
+                return (
                 <li key={game.id}>
                   <Link
                     href={`/${locale}/app/games/${game.id}`}
@@ -246,7 +250,7 @@ export function TopbarSearch({
                       />
                     ) : (
                       <span className="search-panel__cover search-panel__cover--empty">
-                        <Gamepad2 aria-hidden="true" />
+                        <KindIcon aria-hidden="true" />
                       </span>
                     )}
 
@@ -266,7 +270,8 @@ export function TopbarSearch({
                     )}
                   </Link>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           )}
         </div>

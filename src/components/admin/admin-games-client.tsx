@@ -32,7 +32,8 @@ type AdminDict = Dictionary["admin"]
 type AdminGame = {
   id: string
   title: string
-  platform: string
+  kind: string
+  platform: string | null
   genres: string[]
   status: string
   createdAt: string
@@ -50,11 +51,13 @@ export function AdminGamesClient({
   initialTotal,
   dict,
   statuses,
+  kinds,
 }: {
   initialGames: AdminGame[]
   initialTotal: number
   dict: AdminDict
   statuses: Record<string, string>
+  kinds: Record<string, string>
 }) {
   const [q, setQ] = useState("")
   const [page, setPage] = useState(1)
@@ -150,7 +153,8 @@ export function AdminGamesClient({
                     <div className="flex flex-col">
                       <span className="font-medium">{game.title}</span>
                       <span className="text-xs u-muted">
-                        {game.platform}
+                        {kinds[game.kind] ?? game.kind}
+                        {game.platform ? ` · ${game.platform}` : ""}
                         {game.genres.length > 0
                           ? ` · ${game.genres.join(", ")}`
                           : ""}

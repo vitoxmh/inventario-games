@@ -41,6 +41,7 @@ export async function GET(request: Request) {
       select: {
         id: true,
         title: true,
+        kind: true,
         platform: { select: { name: true } },
         genres: { select: { genre: { select: { nameEs: true } } } },
         status: true,
@@ -55,7 +56,8 @@ export async function GET(request: Request) {
     games: games.map((game) => ({
       id: game.id,
       title: game.title,
-      platform: game.platform.name,
+      kind: game.kind,
+      platform: game.platform?.name ?? null,
       // El panel muestra los géneros en español y separados por comas: el juego
       // puede tener varios y la columna es una sola celda.
       genres: game.genres.map((row) => row.genre.nameEs),

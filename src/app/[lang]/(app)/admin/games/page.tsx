@@ -4,7 +4,7 @@ import { AdminGamesClient } from "@/components/admin/admin-games-client"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 
 export const metadata: Metadata = {
-  title: "Juegos",
+  title: "Elementos",
   robots: { index: false, follow: false },
 }
 
@@ -21,6 +21,7 @@ export default async function AdminGamesPage() {
       select: {
         id: true,
         title: true,
+        kind: true,
         platform: { select: { name: true } },
         genres: { select: { genre: { select: { nameEs: true } } } },
         status: true,
@@ -36,7 +37,8 @@ export default async function AdminGamesPage() {
       initialGames={games.map((game) => ({
         id: game.id,
         title: game.title,
-        platform: game.platform?.name ?? "—",
+        kind: game.kind,
+        platform: game.platform?.name ?? null,
         genres: game.genres.map((row) => row.genre.nameEs),
         status: game.status,
         createdAt: game.createdAt.toISOString(),
@@ -45,6 +47,7 @@ export default async function AdminGamesPage() {
       initialTotal={total}
       dict={dict.admin}
       statuses={inventoryDict.statuses}
+      kinds={inventoryDict.kinds}
     />
   )
 }
