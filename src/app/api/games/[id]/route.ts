@@ -6,7 +6,11 @@ import { readGenreIds } from "@/lib/genre-input"
 import { isConditionKey } from "@/lib/conditions"
 import { readParts } from "@/lib/game-parts"
 import { flatGenres } from "@/lib/game-summary"
-import { isCollectionKind, kindRequiresPlatform } from "@/lib/kinds"
+import {
+  isCollectionKind,
+  isValidReleaseYear,
+  kindRequiresPlatform,
+} from "@/lib/kinds"
 import { isValidImageUrl } from "@/lib/image-url"
 
 export const dynamic = "force-dynamic"
@@ -31,6 +35,7 @@ export async function PATCH(
     publisher?: unknown
     series?: unknown
     volume?: unknown
+    releaseYear?: unknown
     rating?: unknown
     status?: unknown
     playtimeMin?: unknown
@@ -60,6 +65,7 @@ export async function PATCH(
     publisher?: string | null
     series?: string | null
     volume?: number | null
+    releaseYear?: number | null
     rating?: number | null
     status?: GameStatus
     playtimeMin?: number | null
@@ -177,6 +183,32 @@ export async function PATCH(
       return NextResponse.json({ error: "invalid_volume" }, { status: 400 })
     }
     data.volume = volume
+  }
+
+  // Año de lanzamiento: entero opcional dentro del rango compartido con la UI.
+  // `null`/"" lo vacían; un array u objeto no pasa por número aunque `Number([])`
+  // sea 0, de ahí el `typeof` estricto.
+  if (body.releaseYear === undefined) {
+    // No se toca.
+  } else if (body.releaseYear === null || body.releaseYear === "") {
+    data.releaseYear = null
+  } else if (
+    typeof body.releaseYear !== "number" &&
+    typeof body.releaseYear !== "string"
+  ) {
+    return NextResponse.json(
+      { error: "invalid_release_year" },
+      { status: 400 },
+    )
+  } else {
+    const releaseYear = Number(body.releaseYear)
+    if (!isValidReleaseYear(releaseYear)) {
+      return NextResponse.json(
+        { error: "invalid_release_year" },
+        { status: 400 },
+      )
+    }
+    data.releaseYear = releaseYear
   }
 
   if (body.rating !== undefined && body.rating !== null && body.rating !== "") {

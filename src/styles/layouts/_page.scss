@@ -102,7 +102,7 @@
   gap: var(--gv-space-3);
 
   @include from($bp-sm) {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 290px minmax(0, 1fr);
   }
 }
 

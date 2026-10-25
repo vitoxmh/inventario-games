@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
+import { MAX_RELEASE_YEAR, MIN_RELEASE_YEAR } from "@/lib/kinds"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -39,19 +40,24 @@ export async function GET(request: Request) {
   }
 
   // `contains` con `mode: "insensitive"` cubre título, plataforma, género,
-  // créditos y serie, que es el mismo criterio que aplica el filtro de la
-  // colección, y
-  // así el buscador encuentra "Fire Emblem" tanto por el título como por la
-  // desarrolladora sin pedirle al usuario que separe campos.
+  // créditos, serie y año, que es el mismo criterio que aplica el filtro de la
+  // colección, y así el buscador encuentra "Fire Emblem" tanto por el título
+  // como por la desarrolladora sin pedirle al usuario que separe campos.
   //
   // El género se busca por los dos nombres del listado con `some`, que es la
   // forma de bajar por una relación many-to-many: el juego aparece si alguno de
   // sus géneros encaja, no hace falta que coincidan todos.
+  const year = Number(q)
+  const isYear =
+    Number.isInteger(year) &&
+    year >= MIN_RELEASE_YEAR &&
+    year <= MAX_RELEASE_YEAR
   const games = await prisma.game.findMany({
     where: {
       userId: session.user.id,
       OR: [
         { title: { contains: q, mode: "insensitive" } },
+        ...(isYear ? [{ releaseYear: year }] : []),
         {
           genres: {
             some: {

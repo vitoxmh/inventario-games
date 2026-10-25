@@ -23,6 +23,8 @@ import {
   kindSupportsParts,
   kindSupportsPlatform,
   kindSupportsPlaytime,
+  kindSupportsReleaseYear,
+  kindSupportsSeries,
   kindSupportsVolume,
 } from "@/lib/kinds"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
@@ -90,11 +92,12 @@ export default async function GameDetailPage({
 
   const fields = inv.kindFields[game.kind]
   const KindIcon = KIND_ICONS[game.kind]
-  // Las figuras no usan plataforma, género ni desarrollador: no se pintan
-  // siquiera como fila vacía.
+  // Figuras y consolas no usan plataforma, género ni desarrollador: no se
+  // pintan siquiera como fila vacía.
   const showPlatform = kindSupportsPlatform(game.kind)
   const showGenre = kindSupportsGenre(game.kind)
   const showDeveloper = kindSupportsDeveloper(game.kind)
+  const showReleaseYear = kindSupportsReleaseYear(game.kind)
 
   const genreLabels = genreNames(
     game.genres.map((row) => row.genre),
@@ -106,12 +109,17 @@ export default async function GameDetailPage({
     ...(showPlatform && game.platform
       ? [{ label: fields.platform, value: game.platform.name }]
       : []),
+    ...(showReleaseYear && game.releaseYear != null
+      ? [{ label: inv.releaseYear, value: String(game.releaseYear) }]
+      : []),
     ...(showGenre ? [{ label: inv.genre, value: genreLabel || "—" }] : []),
     ...(showDeveloper
       ? [{ label: fields.developer, value: game.developer ?? "—" }]
       : []),
     { label: fields.publisher, value: game.publisher ?? "—" },
-    ...(game.series ? [{ label: inv.series, value: game.series }] : []),
+    ...(kindSupportsSeries(game.kind) && game.series
+      ? [{ label: inv.series, value: game.series }]
+      : []),
     ...(kindSupportsVolume(game.kind) && game.volume != null
       ? [{ label: inv.volume, value: String(game.volume) }]
       : []),
@@ -157,6 +165,10 @@ export default async function GameDetailPage({
           </div>
           <p className="page-lead page-lead--spaced">
             {[
+              showReleaseYear && game.releaseYear != null
+                ? String(game.releaseYear)
+                : null,
+              showReleaseYear ? game.publisher : null,
               showPlatform ? game.platform?.name : null,
               showGenre && genreLabels.length > 0
                 ? genreLabels.join(" · ")

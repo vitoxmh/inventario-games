@@ -146,8 +146,10 @@ export const en: Dictionary = {
     platformNotAvailable:
       "A result's platform isn't defined by the admin yet.",
     manualAdd:
-      "Can't find what you're looking for? Add it manually as an accessory, figure or book (comics and manga included).",
+      "Can't find what you're looking for? Add it manually as a console, accessory, figure or book (comics and manga included).",
     manualTitleLabel: "Title",
+    consoleTitleLabel: "Console name",
+    consoleTitlePlaceholder: "e.g., PlayStation 2…",
     manualPlatformLabel: "Platform",
     otherPlatform: "Other",
     add: "Add",
@@ -200,6 +202,9 @@ export const en: Dictionary = {
     volume: "Volume or number",
     volumePlaceholder: "e.g., 1",
     errorVolumeInvalid: "Volume must be a whole number greater than or equal to 0.",
+    releaseYear: "Release year",
+    releaseYearPlaceholder: "e.g., 1994",
+    errorReleaseYearInvalid: "The year must be a whole number between 1900 and 2100.",
     rating: "Rating",
     ratingHint: "Rate from 1 to 5 stars. Click the set star again to clear it.",
     ratingValue: "{rating} of {max} stars",
@@ -301,6 +306,7 @@ export const en: Dictionary = {
     noPlatform: "No platform",
     kinds: {
       GAME: "Game",
+      CONSOLE: "Console",
       ACCESSORY: "Accessory",
       FIGURE: "Figure",
       BOOK: "Book / Comic / Manga",
@@ -310,6 +316,11 @@ export const en: Dictionary = {
         platform: "Platform",
         developer: "Developer",
         publisher: "Publisher",
+      },
+      CONSOLE: {
+        platform: "Platform",
+        developer: "Manufacturer",
+        publisher: "Company",
       },
       ACCESSORY: {
         platform: "Compatible with",
