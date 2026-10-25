@@ -37,6 +37,8 @@ import {
   kindSupportsGenre,
   kindSupportsPlatform,
   kindSupportsPlaytime,
+  kindSupportsReleaseYear,
+  kindSupportsSeries,
   kindSupportsVolume,
   type CollectionKindKey,
 } from "@/lib/kinds"
@@ -141,6 +143,7 @@ function downloadCsv(
     dict.csvPublisher,
     dict.series,
     dict.volume,
+    dict.releaseYear,
     dict.csvRating,
     dict.statusLabel,
     dict.condition,
@@ -158,8 +161,9 @@ function downloadCsv(
       kindSupportsGenre(game.kind) ? genreLabelsOf(game, lang) : "",
       kindSupportsDeveloper(game.kind) ? game.developer : null,
       game.publisher,
-      game.series,
+      kindSupportsSeries(game.kind) ? game.series : null,
       kindSupportsVolume(game.kind) ? game.volume : null,
+      kindSupportsReleaseYear(game.kind) ? game.releaseYear : null,
       game.rating,
       dict.statuses[game.status],
       conditionLabel(game.condition, dict.conditions),
@@ -252,7 +256,7 @@ export function CollectionView({
     const list = games.filter((game) => {
       if (q) {
         const haystack =
-          `${game.title} ${game.platform} ${genreLabelsOf(game, lang)} ${game.developer ?? ""} ${game.publisher ?? ""} ${game.series ?? ""} ${game.volume ?? ""}`.toLowerCase()
+          `${game.title} ${game.platform} ${genreLabelsOf(game, lang)} ${game.developer ?? ""} ${game.publisher ?? ""} ${game.series ?? ""} ${game.volume ?? ""} ${game.releaseYear ?? ""}`.toLowerCase()
         if (!haystack.includes(q)) return false
       }
       if (status !== "all" && game.status !== status) return false
@@ -821,6 +825,7 @@ function GameCard({
   const cover = game.images[0] ?? game.coverImageUrl
   const isDigital = game.status === GameStatus.DIGITAL
   const hasPlaytime = kindSupportsPlaytime(game.kind)
+  const hasReleaseYear = kindSupportsReleaseYear(game.kind)
   const hours =
     hasPlaytime && game.playtimeMin != null
       ? Math.round(game.playtimeMin / 60)
@@ -832,18 +837,22 @@ function GameCard({
       : dict.playtimeRegistered.replace("{hours}", String(hours))
   // En figuras y libros (cómics y mangas incluidos) la serie y el tomo son el
   // dato que sitúa la pieza; en un juego se omite porque ya lo cuenta el título.
-  const series = !hasPlaytime && game.series
+  const series = kindSupportsSeries(game.kind) && game.series
     ? kindSupportsVolume(game.kind) && game.volume != null
       ? `${game.series} #${game.volume}`
       : game.series
     : null
   const meta = [
+    hasReleaseYear && game.releaseYear != null ? game.releaseYear : null,
+    hasReleaseYear ? game.publisher : null,
     kindSupportsDeveloper(game.kind) ? game.developer : null,
     series,
     kindSupportsGenre(game.kind)
       ? genreNames(game.genres, lang).join(", ") ||
         conditionLabel(game.condition, dict.conditions)
-      : null,
+      : hasReleaseYear
+        ? conditionLabel(game.condition, dict.conditions)
+        : null,
     playtime,
   ]
     .filter(Boolean)

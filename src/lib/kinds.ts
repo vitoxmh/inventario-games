@@ -3,6 +3,7 @@ import {
   Gamepad2,
   Package,
   ToyBrick,
+  Tv,
   type LucideIcon,
 } from "lucide-react"
 import { CollectionKind } from "@/generated/prisma/enums"
@@ -11,12 +12,13 @@ import { CollectionKind } from "@/generated/prisma/enums"
  * Tipos de artículo que puede guardar la colección.
  *
  * El modelo de datos sigue llamándose `Game`, pero `Game.kind` distingue
- * videojuegos de accesorios, figuras y libros (con cómics y mangas dentro de
- * `BOOK`). El orden es el de los selectores y filtros, no el alfabético: primero
- * el caso mayoritario (juego) y después el resto.
+ * videojuegos de consolas, accesorios, figuras y libros (con cómics y mangas
+ * dentro de `BOOK`). El orden es el de los selectores y filtros, no el
+ * alfabético: primero el caso mayoritario (juego) y después el resto.
  */
 export const COLLECTION_KINDS = [
   CollectionKind.GAME,
+  CollectionKind.CONSOLE,
   CollectionKind.ACCESSORY,
   CollectionKind.FIGURE,
   CollectionKind.BOOK,
@@ -37,6 +39,7 @@ export function isCollectionKind(value: unknown): value is CollectionKindKey {
 /** Icono de cada tipo, para filtros, tarjetas y fichas. */
 export const KIND_ICONS = {
   [CollectionKind.GAME]: Gamepad2,
+  [CollectionKind.CONSOLE]: Tv,
   [CollectionKind.ACCESSORY]: Package,
   [CollectionKind.FIGURE]: ToyBrick,
   [CollectionKind.BOOK]: BookOpen,
@@ -51,29 +54,29 @@ export function kindRequiresPlatform(kind: CollectionKindKey): boolean {
 }
 
 /**
- * Una figura no se asigna a una plataforma: no es un juego ni un accesorio
- * compatible, así que el campo ni se pinta ni se guarda. El resto de tipos lo
- * conserva opcional.
+ * Una figura o una consola no se asignan a una plataforma: no son juegos ni
+ * accesorios compatibles, así que el campo ni se pinta ni se guarda. El resto de
+ * tipos lo conserva opcional.
  */
 export function kindSupportsPlatform(kind: CollectionKindKey): boolean {
-  return kind !== CollectionKind.FIGURE
+  return kind !== CollectionKind.FIGURE && kind !== CollectionKind.CONSOLE
 }
 
 /**
- * Las figuras no tienen género en el catálogo de `Genre` (esa lista describe
- * videojuegos). El resto de tipos lo conserva opcional.
+ * Las figuras y consolas no tienen género en el catálogo de `Genre` (esa lista
+ * describe videojuegos). El resto de tipos lo conserva opcional.
  */
 export function kindSupportsGenre(kind: CollectionKindKey): boolean {
-  return kind !== CollectionKind.FIGURE
+  return kind !== CollectionKind.FIGURE && kind !== CollectionKind.CONSOLE
 }
 
 /**
- * Una figura no tiene desarrollador; su dato de autoría es el fabricante, que
- * vive en `publisher`. El resto de tipos conserva el campo (autor, fabricante,
- * desarrollador…) con su etiqueta.
+ * Una figura o consola no tiene desarrollador; su dato de autoría es el
+ * fabricante, que vive en `publisher`. El resto de tipos conserva el campo
+ * (autor, fabricante, desarrollador…) con su etiqueta.
  */
 export function kindSupportsDeveloper(kind: CollectionKindKey): boolean {
-  return kind !== CollectionKind.FIGURE
+  return kind !== CollectionKind.FIGURE && kind !== CollectionKind.CONSOLE
 }
 
 /** El tiempo jugado y las piezas físicas (cartucho/disco, caja, manual) solo
@@ -88,11 +91,12 @@ export function kindSupportsParts(kind: CollectionKindKey): boolean {
 
 /**
  * Serie o línea. En un juego el catálogo ya aporta la franquicia, y pedirla en
- * el alta manual sería ruido; en el resto (figuras y libros, incluidos cómics y
- * mangas) es el dato que ordena la colección.
+ * el alta manual sería ruido; una consola tampoco pertenece a una serie. En
+ * figuras y libros (incluidos cómics y mangas) es el dato que ordena la
+ * colección.
  */
 export function kindSupportsSeries(kind: CollectionKindKey): boolean {
-  return kind !== CollectionKind.GAME
+  return kind === CollectionKind.FIGURE || kind === CollectionKind.BOOK
 }
 
 /**
@@ -101,4 +105,21 @@ export function kindSupportsSeries(kind: CollectionKindKey): boolean {
  */
 export function kindSupportsVolume(kind: CollectionKindKey): boolean {
   return kind === CollectionKind.BOOK
+}
+
+/** Año de lanzamiento. Solo lo usan las consolas. */
+export function kindSupportsReleaseYear(kind: CollectionKindKey): boolean {
+  return kind === CollectionKind.CONSOLE
+}
+
+/** Rango aceptado para el año de lanzamiento, compartido por API y formularios. */
+export const MIN_RELEASE_YEAR = 1900
+export const MAX_RELEASE_YEAR = 2100
+
+export function isValidReleaseYear(year: number): boolean {
+  return (
+    Number.isInteger(year) &&
+    year >= MIN_RELEASE_YEAR &&
+    year <= MAX_RELEASE_YEAR
+  )
 }

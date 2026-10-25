@@ -29,10 +29,14 @@ import { CollectionKind, GameStatus } from "@/generated/prisma/enums"
 import {
   COLLECTION_KINDS,
   DEFAULT_KIND,
+  MAX_RELEASE_YEAR,
+  MIN_RELEASE_YEAR,
   isCollectionKind,
+  isValidReleaseYear,
   kindRequiresPlatform,
   kindSupportsDeveloper,
   kindSupportsGenre,
+  kindSupportsReleaseYear,
   kindSupportsSeries,
   kindSupportsVolume,
   type CollectionKindKey,
@@ -91,6 +95,7 @@ export function AddGameDialog({
   const [manualPublisher, setManualPublisher] = useState("")
   const [manualSeries, setManualSeries] = useState("")
   const [manualVolume, setManualVolume] = useState("")
+  const [manualReleaseYear, setManualReleaseYear] = useState("")
   const [manualGenreIds, setManualGenreIds] = useState<string[]>([])
   // Una sola opción, igual que el estado del formulario de edición: el
   // desplegable es de elección única y arranca en el mismo valor que ponía el
@@ -107,9 +112,18 @@ export function AddGameDialog({
   })
 
   const manualFields = dict.kindFields[manualKind]
+  const manualTitleLabel =
+    manualKind === CollectionKind.CONSOLE
+      ? dict.consoleTitleLabel
+      : dict.manualTitleLabel
+  const manualTitlePlaceholder =
+    manualKind === CollectionKind.CONSOLE
+      ? dict.consoleTitlePlaceholder
+      : dict.titlePlaceholder
   const manualNeedsPlatform = kindRequiresPlatform(manualKind)
   const manualSupportsSeries = kindSupportsSeries(manualKind)
   const manualSupportsVolume = kindSupportsVolume(manualKind)
+  const manualSupportsReleaseYear = kindSupportsReleaseYear(manualKind)
   const manualHasGenre = kindSupportsGenre(manualKind)
   const manualHasDeveloper = kindSupportsDeveloper(manualKind)
 
@@ -199,6 +213,18 @@ export function AddGameDialog({
       }
       volume = parsed
     }
+
+    // El año solo se envía en consolas; en el resto va como null para no
+    // arrastrar datos de un cambio de tipo.
+    let releaseYear: number | null = null
+    if (manualSupportsReleaseYear && manualReleaseYear.trim() !== "") {
+      const parsed = Number(manualReleaseYear.trim())
+      if (!isValidReleaseYear(parsed)) {
+        setManualError(dict.errorReleaseYearInvalid)
+        return
+      }
+      releaseYear = parsed
+    }
     setManualError(null)
     setAddingManual(true)
     const res = await fetch("/api/games", {
@@ -213,6 +239,7 @@ export function AddGameDialog({
         publisher: manualPublisher.trim() || null,
         series: manualSupportsSeries ? manualSeries.trim() || null : null,
         volume: manualSupportsVolume ? volume : null,
+        releaseYear: manualSupportsReleaseYear ? releaseYear : null,
         status: manualStatus,
       }),
     })
@@ -237,6 +264,7 @@ export function AddGameDialog({
     setManualPublisher("")
     setManualSeries("")
     setManualVolume("")
+    setManualReleaseYear("")
     setManualGenreIds([])
     setManualStatus(GameStatus.OWNED)
     toast.success(dict.addedToast)
@@ -391,7 +419,7 @@ export function AddGameDialog({
                 </Select>
               </span>
               <Label htmlFor="manual-title" className="u-sr-only">
-                {dict.manualTitleLabel}
+                {manualTitleLabel}
               </Label>
               <Input
                 id="manual-title"
@@ -407,7 +435,8 @@ export function AddGameDialog({
                   }
                 }}
                 maxLength={200}
-                placeholder={dict.titlePlaceholder}
+                placeholder={manualTitlePlaceholder}
+                aria-label={manualTitleLabel}
                 aria-invalid={manualError === dict.errorTitleRequired ? true : undefined}
                 autoComplete="off"
               />
@@ -581,6 +610,29 @@ export function AddGameDialog({
                   }
                   placeholder={dict.volumePlaceholder}
                   aria-label={dict.volume}
+                  autoComplete="off"
+                />
+              )}
+              {manualSupportsReleaseYear && (
+                <Input
+                  id="manual-release-year"
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_RELEASE_YEAR}
+                  max={MAX_RELEASE_YEAR}
+                  step="1"
+                  value={manualReleaseYear}
+                  onChange={(event) => {
+                    setManualReleaseYear(event.target.value.slice(0, 4))
+                    if (manualError) setManualError(null)
+                  }}
+                  placeholder={dict.releaseYearPlaceholder}
+                  aria-label={dict.releaseYear}
+                  aria-invalid={
+                    manualError === dict.errorReleaseYearInvalid
+                      ? true
+                      : undefined
+                  }
                   autoComplete="off"
                 />
               )}

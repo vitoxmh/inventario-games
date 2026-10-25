@@ -40,8 +40,8 @@ enum GameStatus {
 }
 
 // Qué es cada fila de la colección. El modelo sigue llamándose `Game` por
-// historia, pero un usuario puede guardar accesorios, figuras y libros (con
-// cómics y mangas dentro del mismo tipo) además de videojuegos. El tipo decide
+// historia, pero un usuario puede guardar consolas, accesorios, figuras y libros
+// (con cómics y mangas dentro del mismo tipo) además de videojuegos. El tipo decide
 // qué campos tienen sentido (la plataforma solo es obligatoria en los juegos y
 // las piezas físicas/tiempo jugado solo se editan en ellos) y es lo que filtra
 // la colección y las estadísticas.
@@ -51,6 +51,7 @@ enum GameStatus {
 // los formularios sin aportar un dato distinto.
 enum CollectionKind {
   GAME
+  CONSOLE
   ACCESSORY
   FIGURE
   BOOK
@@ -319,6 +320,9 @@ model Game {
   // la entrega de una colección. Entero y opcional; el rango se valida en la
   // API (`src/app/api/games/*`), no aquí.
   volume        Int?
+  // Año de lanzamiento de la consola. Opcional y solo se pinta en ese tipo; el
+  // rango se valida en la API (`src/app/api/games/*`), no aquí.
+  releaseYear   Int?
   // Valoración personal del 1 al 5 (0 estrellas = sin valorar). Es un entero
   // pequeño y no un decimal porque la interfaz solo ofrece cinco niveles; el
   // rango se valida en la API, no aquí, para no poder escribir un 6 en la BD.

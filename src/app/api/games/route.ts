@@ -6,7 +6,11 @@ import { fetchRawgGameCredits } from "@/lib/rawg"
 import { isRateLimitedRequest, rateLimitJsonResponse } from "@/lib/rate-limit"
 import { genreIdFromLabel, readGenreIds } from "@/lib/genre-input"
 import { flatGenres } from "@/lib/game-summary"
-import { isCollectionKind, kindRequiresPlatform } from "@/lib/kinds"
+import {
+  isCollectionKind,
+  isValidReleaseYear,
+  kindRequiresPlatform,
+} from "@/lib/kinds"
 import { isValidImageUrl } from "@/lib/image-url"
 
 export const dynamic = "force-dynamic"
@@ -43,6 +47,7 @@ const createSelect = {
   publisher: true,
   series: true,
   volume: true,
+  releaseYear: true,
   rating: true,
   status: true,
   condition: true,
@@ -113,6 +118,7 @@ export async function POST(request: Request) {
     publisher?: unknown
     series?: unknown
     volume?: unknown
+    releaseYear?: unknown
     rating?: unknown
     status?: unknown
     coverImageUrl?: unknown
@@ -217,6 +223,35 @@ export async function POST(request: Request) {
     volume = parsed
   }
 
+  // El año de lanzamiento lo usa la consola, pero la API solo valida el dato:
+  // qué tipos lo pintan lo decide `kindSupportsReleaseYear`. Igual que el tomo,
+  // un valor vacío se guarda como `null` y un tipo equivocado se rechaza antes
+  // de tocar la BD.
+  let releaseYear: number | null = null
+  if (
+    body.releaseYear !== undefined &&
+    body.releaseYear !== null &&
+    body.releaseYear !== ""
+  ) {
+    if (
+      typeof body.releaseYear !== "number" &&
+      typeof body.releaseYear !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "invalid_release_year" },
+        { status: 400 },
+      )
+    }
+    const parsed = Number(body.releaseYear)
+    if (!isValidReleaseYear(parsed)) {
+      return NextResponse.json(
+        { error: "invalid_release_year" },
+        { status: 400 },
+      )
+    }
+    releaseYear = parsed
+  }
+
   // El género llega dos caminos: elegido del listado (`genreIds`, los que marcó
   // el usuario) o deduplicado del texto que trae RAWG. El cuerpo manda por
   // encima, igual que con los créditos: si el cliente ya envió `genreIds`, no se
@@ -283,6 +318,7 @@ export async function POST(request: Request) {
         publisher: credits.publisher,
         series,
         volume,
+        releaseYear,
         rating,
         ...(status ? { status } : {}),
         coverImageUrl: coverImageUrl || null,

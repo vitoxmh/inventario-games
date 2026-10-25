@@ -30,6 +30,8 @@ export type GameSummary = {
   series: string | null
   /** Número dentro de esa serie (tomo, volumen o entrega). */
   volume: number | null
+  /** Año de lanzamiento (`null` salvo en consolas). */
+  releaseYear: number | null
   /** Valoración personal de 1 a 5; `null` = sin valorar. */
   rating: number | null
   status: keyof typeof GameStatus
@@ -104,6 +106,7 @@ export function toGameSummary(game: GameWithImages): GameSummary {
     publisher: game.publisher,
     series: game.series ?? null,
     volume: game.volume ?? null,
+    releaseYear: game.releaseYear ?? null,
     rating: game.rating,
     status: game.status,
     condition: game.condition,

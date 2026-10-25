@@ -20,13 +20,17 @@ import {
 import { CollectionKind, GameStatus } from "@/generated/prisma/enums"
 import {
   COLLECTION_KINDS,
+  MAX_RELEASE_YEAR,
+  MIN_RELEASE_YEAR,
   isCollectionKind,
+  isValidReleaseYear,
   kindRequiresPlatform,
   kindSupportsDeveloper,
   kindSupportsGenre,
   kindSupportsParts,
   kindSupportsPlatform,
   kindSupportsPlaytime,
+  kindSupportsReleaseYear,
   kindSupportsSeries,
   kindSupportsVolume,
   type CollectionKindKey,
@@ -60,7 +64,10 @@ type StatusKey = keyof typeof GameStatus
 // El estado físico es un desplegable con la escalera cerrada, no un texto: no
 // tiene error de validación porque siempre hay una opción marcada.
 type FieldErrors = Partial<
-  Record<"title" | "platformId" | "status" | "hours" | "price" | "volume", string>
+  Record<
+    "title" | "platformId" | "status" | "hours" | "price" | "volume" | "releaseYear",
+    string
+  >
 >
 
 const STATUS_KEYS = Object.keys(GameStatus) as StatusKey[]
@@ -115,6 +122,9 @@ export function EditGameForm({
   const [volume, setVolume] = useState(
     game.volume != null ? String(game.volume) : "",
   )
+  const [releaseYear, setReleaseYear] = useState(
+    game.releaseYear != null ? String(game.releaseYear) : "",
+  )
   const [rating, setRating] = useState<number | null>(game.rating)
   const [status, setStatus] = useState<StatusKey>(game.status)
   const [condition, setCondition] = useState<ConditionKey>(
@@ -153,12 +163,17 @@ export function EditGameForm({
   const hasParts = kindSupportsParts(kind)
   const hasSeries = kindSupportsSeries(kind)
   const hasVolume = kindSupportsVolume(kind)
+  const hasReleaseYear = kindSupportsReleaseYear(kind)
   const hasGenre = kindSupportsGenre(kind)
   const hasDeveloper = kindSupportsDeveloper(kind)
   // La plataforma se exige en los juegos y se ofrece opcional en el resto salvo
   // en las figuras, que no pertenecen a ninguna.
   const hasPlatform = needsPlatform || kindSupportsPlatform(kind)
   const fields = dict.kindFields[kind]
+  const titleLabel =
+    kind === CollectionKind.CONSOLE
+      ? dict.consoleTitleLabel
+      : dict.titleLabel
 
   const detailHref = `/${lang}/app/games/${game.id}`
 
@@ -248,6 +263,17 @@ export function EditGameForm({
       }
     }
 
+    // El año solo existe en consolas; en el resto se manda como null.
+    let parsedReleaseYear: number | null = null
+    if (hasReleaseYear && releaseYear.trim() !== "") {
+      const parsed = Number(releaseYear.trim())
+      if (!isValidReleaseYear(parsed)) {
+        nextErrors.releaseYear = dict.errorReleaseYearInvalid
+      } else {
+        parsedReleaseYear = parsed
+      }
+    }
+
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -281,6 +307,7 @@ export function EditGameForm({
           publisher: publisher.trim().slice(0, 160) || null,
           series: hasSeries ? series.trim().slice(0, 160) || null : null,
           volume: hasVolume ? parsedVolume : null,
+          releaseYear: hasReleaseYear ? parsedReleaseYear : null,
           rating,
           status,
           playtimeMin,
@@ -425,7 +452,7 @@ export function EditGameForm({
             </Select>
           </div>
           <div className="game-form__field">
-            <Label htmlFor={`edit-title-${game.id}`}>{dict.titleLabel}</Label>
+            <Label htmlFor={`edit-title-${game.id}`}>{titleLabel}</Label>
             <Input
               id={`edit-title-${game.id}`}
               value={title}
@@ -434,7 +461,11 @@ export function EditGameForm({
                 if (errors.title) setErrors((prev) => ({ ...prev, title: undefined }))
               }}
               maxLength={200}
-              placeholder={dict.titlePlaceholder}
+              placeholder={
+                kind === CollectionKind.CONSOLE
+                  ? dict.consoleTitlePlaceholder
+                  : dict.titlePlaceholder
+              }
               aria-invalid={errors.title ? true : undefined}
               autoComplete="off"
             />
@@ -584,6 +615,33 @@ export function EditGameForm({
                   <p className="field-error">{errors.volume}</p>
                 )}
               </div>
+          )}
+          {hasReleaseYear && (
+            <div className="game-form__field">
+              <Label htmlFor={`edit-release-year-${game.id}`}>
+                {dict.releaseYear}
+              </Label>
+              <Input
+                id={`edit-release-year-${game.id}`}
+                type="number"
+                inputMode="numeric"
+                min={MIN_RELEASE_YEAR}
+                max={MAX_RELEASE_YEAR}
+                step="1"
+                value={releaseYear}
+                onChange={(event) => {
+                  setReleaseYear(event.target.value.slice(0, 4))
+                  if (errors.releaseYear) {
+                    setErrors((prev) => ({ ...prev, releaseYear: undefined }))
+                  }
+                }}
+                placeholder={dict.releaseYearPlaceholder}
+                aria-invalid={errors.releaseYear ? true : undefined}
+              />
+              {errors.releaseYear && (
+                <p className="field-error">{errors.releaseYear}</p>
+              )}
+            </div>
           )}
           <div className="game-form__field">
             <Label htmlFor={`edit-status-${game.id}`}>{dict.statusLabel}</Label>

@@ -144,8 +144,10 @@ export const es = {
     platformNotAvailable:
       "La plataforma de algún resultado aún no está definida por el administrador.",
     manualAdd:
-      "¿No encuentras lo que buscas? Añádelo manualmente como accesorio, figura o libro (cómic y manga incluidos).",
+      "¿No encuentras lo que buscas? Añádelo manualmente como consola, accesorio, figura o libro (cómic y manga incluidos).",
     manualTitleLabel: "Título",
+    consoleTitleLabel: "Nombre de la consola",
+    consoleTitlePlaceholder: "Ej. PlayStation 2…",
     manualPlatformLabel: "Plataforma",
     otherPlatform: "Otra",
     add: "Añadir",
@@ -198,6 +200,9 @@ export const es = {
     volume: "Tomo o número",
     volumePlaceholder: "Ej. 1",
     errorVolumeInvalid: "El tomo debe ser un número entero mayor o igual que 0.",
+    releaseYear: "Año de lanzamiento",
+    releaseYearPlaceholder: "Ej. 1994",
+    errorReleaseYearInvalid: "El año debe ser un número entero entre 1900 y 2100.",
     rating: "Valoración",
     ratingHint: "Puntúa de 1 a 5 estrellas. Vuelve a pulsar la estrella puesta para quitarla.",
     ratingValue: "{rating} de {max} estrellas",
@@ -300,6 +305,7 @@ export const es = {
     noPlatform: "Sin plataforma",
     kinds: {
       GAME: "Juego",
+      CONSOLE: "Consola",
       ACCESSORY: "Accesorio",
       FIGURE: "Figura",
       BOOK: "Libro / Cómic / Manga",
@@ -309,6 +315,11 @@ export const es = {
         platform: "Plataforma",
         developer: "Desarrollador",
         publisher: "Editora",
+      },
+      CONSOLE: {
+        platform: "Plataforma",
+        developer: "Fabricante",
+        publisher: "Compañía",
       },
       ACCESSORY: {
         platform: "Compatible con",

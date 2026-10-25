@@ -309,8 +309,12 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  @include from($bp-md) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   @include from($bp-lg) {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -329,6 +333,11 @@
     var(--gv-surface-2);
   border: 1px solid var(--gv-border);
   border-radius: var(--gv-radius-md);
+
+  &[data-kind="CONSOLE"] {
+    --kind-tone: rgb(247 185 85);
+    --kind-tone-soft: rgb(247 185 85 / 14%);
+  }
 
   &[data-kind="ACCESSORY"] {
     --kind-tone: var(--gv-accent);
